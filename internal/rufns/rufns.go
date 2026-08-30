@@ -17,7 +17,15 @@ const ID = "ru_fns"
 
 var queryRE = regexp.MustCompile(`(?i)(?:^|[?&])([a-z]+)=([^&]*)`)
 
-type Provider struct{}
+// APIToken is injected at app build via -ldflags -X.
+var APIToken string
+
+type Fetcher func(ctx context.Context, qrraw string) ([]byte, error)
+
+type Provider struct {
+	Token string
+	Fetch Fetcher
+}
 
 type fields struct {
 	fn       string
@@ -25,6 +33,7 @@ type fields struct {
 	fp       string
 	t        string
 	n        string
+	s        string
 	sum      *float64
 	issuedAt *time.Time
 }
@@ -44,11 +53,28 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 	return f.fn + "|" + f.fd + "|" + f.fp, true
 }
 
-func (p Provider) Parse(_ context.Context, rawQR string) (*eq.Receipt, error) {
+func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
 	f := parseFields(rawQR)
 	if f == nil {
 		return nil, errors.New("invalid_qr")
 	}
+	receipt := receiptFromFields(rawQR, f)
+	if p.token() == "" {
+		return receipt, nil
+	}
+	body, err := p.fetch(ctx, f.qrraw())
+	if err != nil {
+		return receipt, nil
+	}
+	ticket, err := parseTicket(body)
+	if err != nil {
+		return receipt, nil
+	}
+	applyTicket(receipt, ticket)
+	return receipt, nil
+}
+
+func receiptFromFields(rawQR string, f *fields) *eq.Receipt {
 	issued := time.Now()
 	if f.issuedAt != nil {
 		issued = *f.issuedAt
@@ -82,7 +108,14 @@ func (p Provider) Parse(_ context.Context, rawQR string) (*eq.Receipt, error) {
 			"checkscan.qr_raw": rawQR,
 			"ru_fns":           ru,
 		},
-	}, nil
+	}
+}
+
+func (p Provider) token() string {
+	if p.Token != "" {
+		return p.Token
+	}
+	return strings.TrimSpace(APIToken)
 }
 
 func parseFields(rawQR string) *fields {
@@ -111,9 +144,22 @@ func parseFields(rawQR string) *fields {
 		fp:       fp,
 		t:        values["t"],
 		n:        values["n"],
+		s:        values["s"],
 		sum:      sum,
 		issuedAt: parseTime(values["t"]),
 	}
+}
+
+func (f *fields) qrraw() string {
+	parts := []string{
+		"t=" + url.QueryEscape(f.t),
+		"s=" + url.QueryEscape(f.s),
+		"fn=" + url.QueryEscape(f.fn),
+		"i=" + url.QueryEscape(f.fd),
+		"fp=" + url.QueryEscape(f.fp),
+		"n=" + url.QueryEscape(f.n),
+	}
+	return strings.Join(parts, "&")
 }
 
 func parseTime(raw string) *time.Time {
