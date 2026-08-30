@@ -11,8 +11,9 @@ Overview and `go test ./...`: [README.md](README.md).
 | [pkg/resolve](pkg/resolve/resolve.go) | Public API: `Match` / `Resolve`, default registry |
 | [pkg/provider](pkg/provider/provider.go) | `Provider` interface |
 | [pkg/eq](pkg/eq/receipt.go) | Receipt JSON model |
-| [include/checkscan.h](include/checkscan.h) | C ABI (`checkscan_match` / `resolve` / `providers`) |
+| [include/checkscan.h](include/checkscan.h) | C ABI (`checkscan_match` / `resolve` / `providers` / `set_log`) |
 | [cmd/lib](cmd/lib/main.go) | c-shared exports |
+| [internal/nativelog](internal/nativelog/nativelog.go) | Library logs: stderr, or host `checkscan_set_log` |
 | [internal/](internal/) | One package per provider |
 | [testdata/](testdata/) | QR fixtures |
 
@@ -32,4 +33,5 @@ Do not change the C ABI without updating CheckScan FFI (`packages/providers_nati
 
 - This repo is the library only. No client surface: UI, copy, localization, images, or other presentation. That lives in CheckScan.
 - New code needs tests (`go test ./...`).
+- Native logs: stderr by default. Host may set `checkscan_set_log`. Do not log tokens or full HTTP bodies.
 - Keep files small. Split growing files; split a package when it starts doing more than one job.

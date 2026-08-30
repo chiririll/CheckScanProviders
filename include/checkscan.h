@@ -13,6 +13,9 @@ char* checkscan_match(const char* raw_qr, const char* adapter_hint);
 char* checkscan_resolve(const char* raw_qr, const char* adapter_hint, const char* mode);
 char* checkscan_providers(void);
 void  checkscan_free(char* p);
+/* Host sink. level: 3 debug, 4 info, 5 warn, 6 error. message is library-owned; host must checkscan_free it. */
+typedef void (*checkscan_log_fn)(int level, const char* message);
+void  checkscan_set_log(checkscan_log_fn fn);
 
 #ifdef __cplusplus
 }

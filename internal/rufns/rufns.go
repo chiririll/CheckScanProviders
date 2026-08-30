@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -57,25 +58,35 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
 	f := parseFields(rawQR)
 	if f == nil {
+		nativelog.Warn("%s rufns invalid_qr", nativelog.Call(ctx))
 		return nil, errors.New("invalid_qr")
 	}
 	receipt := receiptFromFields(rawQR, f)
 	if !provider.Remote(ctx) || p.token() == "" {
+		nativelog.Info("%s rufns local-only remote=%v token=%v", nativelog.Call(ctx), provider.Remote(ctx), p.token() != "")
 		return receipt, nil
 	}
 	qrraw := f.qrraw()
+	nativelog.Info("%s rufns fetch start", nativelog.Call(ctx))
 	body, err := p.fetch(ctx, qrraw)
 	if err != nil {
 		if httplimit.IsLimit(err) {
+			nativelog.Warn("%s rufns fetch limited: %v", nativelog.Call(ctx), err)
 			httplimit.Mark(receipt)
+		} else {
+			nativelog.Warn("%s rufns fetch err: %v", nativelog.Call(ctx), err)
 		}
 		return receipt, nil
 	}
+	nativelog.Info("%s rufns fetch ok bytes=%d", nativelog.Call(ctx), len(body))
 	ticket, err := parseTicket(body)
 	if err != nil {
+		nativelog.Warn("%s rufns ticket: %v body=%s", nativelog.Call(ctx), err, nativelog.Preview(string(body), 160))
 		return receipt, nil
 	}
 	applyTicket(receipt, ticket)
+	nativelog.Info("%s rufns ticket ok items=%d merchant=%q total=%g",
+		nativelog.Call(ctx), len(receipt.Items), receipt.MerchantName, receipt.GrandTotal)
 	return receipt, nil
 }
 

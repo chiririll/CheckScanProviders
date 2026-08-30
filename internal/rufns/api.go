@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -77,14 +78,22 @@ func defaultFetch(ctx context.Context, token, qrraw string) ([]byte, error) {
 	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		nativelog.Warn("%s rufns http POST %s: %v", nativelog.Call(ctx), apiHost, err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		nativelog.Warn("%s rufns http POST %s status=%d", nativelog.Call(ctx), apiHost, resp.StatusCode)
 		httplimit.Note(apiHost, resp.StatusCode, resp.Header)
 		return nil, fmt.Errorf("http_%d", resp.StatusCode)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
+	if err != nil {
+		nativelog.Warn("%s rufns http read: %v", nativelog.Call(ctx), err)
+		return nil, err
+	}
+	nativelog.Info("%s rufns http POST %s status=%d bytes=%d", nativelog.Call(ctx), apiHost, resp.StatusCode, len(body))
+	return body, nil
 }
 
 func parseTicket(body []byte) (*ticket, error) {

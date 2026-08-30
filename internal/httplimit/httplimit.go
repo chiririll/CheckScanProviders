@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 )
 
@@ -94,26 +95,33 @@ func Acquire(ctx context.Context, host string, wait bool) error {
 		g.mu.Lock()
 		now := time.Now()
 		if now.Before(g.until) {
+			remain := g.until.Sub(now)
 			g.mu.Unlock()
+			nativelog.Warn("%s httplimit limited host=%s remain=%s", nativelog.Call(ctx), host, remain.Round(time.Second))
 			return ErrLimited
 		}
 		g.prune(now, policy)
 		if delay := windowDelay(g.hits, now, policy.Windows); delay > 0 {
 			g.mu.Unlock()
 			if !wait {
+				nativelog.Info("%s httplimit throttle host=%s delay=%s wait=false", nativelog.Call(ctx), host, delay.Round(time.Millisecond))
 				return ErrThrottled
 			}
+			nativelog.Info("%s httplimit wait host=%s delay=%s", nativelog.Call(ctx), host, delay.Round(time.Millisecond))
 			timer := time.NewTimer(delay)
 			select {
 			case <-ctx.Done():
 				timer.Stop()
+				nativelog.Warn("%s httplimit wait canceled host=%s: %v", nativelog.Call(ctx), host, ctx.Err())
 				return ctx.Err()
 			case <-timer.C:
 			}
 			continue
 		}
+		hits := len(g.hits) + 1
 		g.hits = append(g.hits, now)
 		g.mu.Unlock()
+		nativelog.Info("%s httplimit acquire host=%s hits=%d", nativelog.Call(ctx), host, hits)
 		save()
 		return nil
 	}
@@ -146,6 +154,8 @@ func Note(host string, status int, header http.Header) {
 		g.until = until
 	}
 	g.mu.Unlock()
+	nativelog.Warn("httplimit cooldown host=%s status=%d wait=%s until=%s",
+		host, status, wait.Round(time.Second), until.Format(time.RFC3339))
 	save()
 }
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -44,15 +45,17 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 	return hashRaw(text), true
 }
 
-func (p Provider) Parse(_ context.Context, rawQR string) (*eq.Receipt, error) {
+func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
 	text := strings.TrimSpace(rawQR)
 	if _, ok := asMap(text); !ok {
 		return nil, errors.New("invalid_json")
 	}
 	var receipt eq.Receipt
 	if err := json.Unmarshal([]byte(text), &receipt); err != nil {
+		nativelog.Warn("%s eqpayload invalid_json", nativelog.Call(ctx))
 		return nil, errors.New("invalid_json")
 	}
+	nativelog.Info("%s eqpayload ok id=%s items=%d", nativelog.Call(ctx), receipt.ID, len(receipt.Items))
 	return &receipt, nil
 }
 

@@ -10,12 +10,14 @@ import (
 	"unsafe"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 	"github.com/chiririll/CheckScanProviders/pkg/resolve"
 )
 
 func init() {
 	httplimit.EnablePersist()
+	nativelog.Info("lib init persist=on")
 }
 
 func gostr(p *C.char) string {

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 )
 
 type persistFile struct {
@@ -35,6 +37,7 @@ func EnablePersist() {
 	persistPath = filepath.Join(dir, "checkscan-httplimit.json")
 	loadedOnce = sync.Once{}
 	persistMu.Unlock()
+	nativelog.Info("httplimit persist enabled path=%s", persistPath)
 	load()
 }
 
@@ -74,15 +77,20 @@ func load() {
 		}
 		raw, err := os.ReadFile(path)
 		if err != nil {
+			if !os.IsNotExist(err) {
+				nativelog.Warn("httplimit persist load %s: %v", path, err)
+			}
 			return
 		}
 		var in persistFile
 		if json.Unmarshal(raw, &in) != nil {
+			nativelog.Warn("httplimit persist load invalid %s", path)
 			return
 		}
 		for host, snap := range in.Gates {
 			gates.Store(normalize(host), &gate{until: snap.Until, backoff: snap.Backoff, hits: snap.Hits})
 		}
+		nativelog.Info("httplimit persist loaded path=%s gates=%d", path, len(in.Gates))
 	})
 }
 

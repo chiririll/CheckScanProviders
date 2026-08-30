@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -90,35 +91,49 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
 	vl, ok := extractVL(rawQR)
 	if !ok {
+		nativelog.Warn("%s rspurs invalid_qr", nativelog.Call(ctx))
 		return nil, errors.New("invalid_qr")
 	}
 	local, err := receiptFromVL(rawQR, vl)
 	if !provider.Remote(ctx) {
+		nativelog.Info("%s rspurs local-only vl_ok=%v", nativelog.Call(ctx), err == nil)
 		return local, err
 	}
+	nativelog.Info("%s rspurs fetch start", nativelog.Call(ctx))
 	remote, rerr := p.parseRemote(ctx, rawQR)
 	if rerr == nil {
+		nativelog.Info("%s rspurs remote ok items=%d merchant=%q total=%g",
+			nativelog.Call(ctx), len(remote.Items), remote.MerchantName, remote.GrandTotal)
 		return remote, nil
 	}
 	if err == nil {
 		if httplimit.IsLimit(rerr) {
+			nativelog.Warn("%s rspurs remote limited, fallback vl: %v", nativelog.Call(ctx), rerr)
 			httplimit.Mark(local)
+		} else {
+			nativelog.Warn("%s rspurs remote err, fallback vl: %v", nativelog.Call(ctx), rerr)
 		}
 		return local, nil
 	}
+	nativelog.Error("%s rspurs remote and vl failed: %v / %v", nativelog.Call(ctx), rerr, err)
 	return nil, rerr
 }
 
 func (p Provider) parseRemote(ctx context.Context, rawQR string) (*eq.Receipt, error) {
 	pageURL, ok := extractURL(rawQR)
 	if !ok {
+		nativelog.Warn("%s rspurs remote invalid_url", nativelog.Call(ctx))
 		return nil, errors.New("invalid_qr")
 	}
 	body, err := p.fetch(ctx, pageURL)
 	if err != nil {
 		return nil, err
 	}
-	return receiptFromJSON(rawQR, body)
+	receipt, err := receiptFromJSON(rawQR, body)
+	if err != nil {
+		nativelog.Warn("%s rspurs json: %v body=%s", nativelog.Call(ctx), err, nativelog.Preview(string(body), 160))
+	}
+	return receipt, err
 }
 
 func receiptFromJSON(rawQR string, body []byte) (*eq.Receipt, error) {
@@ -207,14 +222,22 @@ func defaultFetch(ctx context.Context, rawURL string) ([]byte, error) {
 	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		nativelog.Warn("%s rspurs http GET %s: %v", nativelog.Call(ctx), hostSUF, err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		nativelog.Warn("%s rspurs http GET %s status=%d", nativelog.Call(ctx), hostSUF, resp.StatusCode)
 		httplimit.Note(hostSUF, resp.StatusCode, resp.Header)
 		return nil, fmt.Errorf("http_%d", resp.StatusCode)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
+	if err != nil {
+		nativelog.Warn("%s rspurs http read: %v", nativelog.Call(ctx), err)
+		return nil, err
+	}
+	nativelog.Info("%s rspurs http GET %s status=%d bytes=%d", nativelog.Call(ctx), hostSUF, resp.StatusCode, len(body))
+	return body, nil
 }
 
 func extractURL(rawQR string) (string, bool) {

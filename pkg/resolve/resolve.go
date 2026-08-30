@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/chiririll/CheckScanProviders/internal/eqpayload"
+	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/internal/rspurs"
 	"github.com/chiririll/CheckScanProviders/internal/rufns"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
@@ -96,28 +98,40 @@ func matchOf(p provider.Provider, hash string) Match {
 }
 
 func MatchJSON(rawQR, hint string) string {
+	id := nativelog.Next()
+	nativelog.Info("%s match start hint=%q qr=%s", id, hint, nativelog.Preview(rawQR, 96))
 	match, err := MatchQR(rawQR, hint, nil)
 	if err != nil {
+		nativelog.Info("%s match unknown_format", id)
 		return encodeError("unknown_format", err.Error())
 	}
+	nativelog.Info("%s match ok adapter=%s hash=%s label=%s", id, match.AdapterID, match.Hash, match.Label)
 	b, err := json.Marshal(match)
 	if err != nil {
+		nativelog.Error("%s match encode: %v", id, err)
 		return encodeError("parse_error", err.Error())
 	}
 	return string(b)
 }
 
 func ResolveJSON(ctx context.Context, rawQR, hint string) string {
+	id := nativelog.Next()
+	ctx = nativelog.WithCall(ctx, id)
+	nativelog.Info("%s resolve start remote=%v wait=%v hint=%q qr=%s",
+		id, provider.Remote(ctx), provider.Wait(ctx), hint, nativelog.Preview(rawQR, 96))
 	result, err := Resolve(ctx, rawQR, hint, nil)
 	if err != nil {
 		code := "parse_error"
 		if errors.Is(err, ErrUnknownFormat) {
 			code = "unknown_format"
 		}
+		nativelog.Error("%s resolve %s: %v", id, code, err)
 		return encodeError(code, err.Error())
 	}
+	nativelog.Info("%s resolve ok adapter=%s hash=%s %s", id, result.AdapterID, result.Hash, receiptSummary(result.Receipt))
 	b, err := json.Marshal(result)
 	if err != nil {
+		nativelog.Error("%s resolve encode: %v", id, err)
 		return encodeError("parse_error", err.Error())
 	}
 	return string(b)
@@ -145,4 +159,18 @@ func encodeError(code, message string) string {
 	out.Error.Message = message
 	b, _ := json.Marshal(out)
 	return string(b)
+}
+
+func receiptSummary(r *eq.Receipt) string {
+	if r == nil {
+		return "receipt=nil"
+	}
+	limited := false
+	if r.Extensions != nil {
+		if v, ok := r.Extensions["checkscan.rate_limited"].(bool); ok {
+			limited = v
+		}
+	}
+	return fmt.Sprintf("id=%s items=%d total=%g merchant=%q limited=%v",
+		r.ID, len(r.Items), r.GrandTotal, r.MerchantName, limited)
 }
