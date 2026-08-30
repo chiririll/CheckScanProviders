@@ -121,6 +121,24 @@ func TestChainPrefersEQ(t *testing.T) {
 	}
 }
 
+func TestMatchRSPursURL(t *testing.T) {
+	raw := strings.TrimSpace(read(t, "rs_url.txt"))
+	m, err := resolve.MatchQR(raw, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.AdapterID != "rs_purs" {
+		t.Fatalf("adapter %s", m.AdapterID)
+	}
+	if m.Hash == "" {
+		t.Fatal("empty hash")
+	}
+	again, err := resolve.MatchQR(raw, "", nil)
+	if err != nil || again.Hash != m.Hash {
+		t.Fatalf("hash must be stable: %v %s", err, again.Hash)
+	}
+}
+
 func TestHintForcesProvider(t *testing.T) {
 	raw := read(t, "fns_query.txt")
 	if _, err := resolve.MatchQR(raw, "eq_payload", nil); err != resolve.ErrUnknownFormat {
@@ -137,7 +155,7 @@ func TestProvidersJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(resolve.ProvidersJSON()), &list); err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 2 || list[0]["id"] != "eq_payload" || list[1]["id"] != "ru_fns" {
+	if len(list) != 3 || list[0]["id"] != "eq_payload" || list[1]["id"] != "rs_purs" || list[2]["id"] != "ru_fns" {
 		t.Fatalf("%v", list)
 	}
 }

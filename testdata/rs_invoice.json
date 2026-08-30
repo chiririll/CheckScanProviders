@@ -1,0 +1,35 @@
+{
+  "invoiceRequest": {
+    "posTime": null,
+    "taxId": "101692669",
+    "businessName": "UNIVEREXPORT",
+    "locationName": "1023048-MP085",
+    "address": "ТРГ ГАЛЕРИЈА 3А   ",
+    "city": "НОВИ САД",
+    "administrativeUnit": "Нови Сад",
+    "buyer": null,
+    "buyerCostCenter": null,
+    "cashier": "113415",
+    "requestedBy": "U56ZV6W7",
+    "referentDocumentNumber": null,
+    "invoiceType": 0,
+    "transactionType": 0,
+    "payments": [
+      {
+        "paymentType": 1,
+        "amount": 200.0
+      }
+    ]
+  },
+  "invoiceResult": {
+    "totalAmount": 89.99,
+    "transactionTypeCounter": 104302,
+    "totalCounter": 104836,
+    "invoiceCounterExtension": "ПП",
+    "invoiceNumber": "U56ZV6W7-U56ZV6W7-104836",
+    "signedBy": "U56ZV6W7",
+    "sdcTime": "2026-08-19T14:34:52Z"
+  },
+  "journal": "============ ФИСКАЛНИ РАЧУН ============\r\n               101692669                \r\n              UNIVEREXPORT              \r\n             1023048-MP085              \r\n           ТРГ ГАЛЕРИЈА 3А              \r\n                Нови Сад                \r\nКасир:                            113415\r\nЕСИР број:                         617/4\r\n-------------ПРОМЕТ ПРОДАЈА-------------\r\nАртикли\r\n========================================\r\nНазив   Цена         Кол.         Укупно\r\nVODA GAZIRANA KNJAZ MILOS LIMUN 1,25L (K\r\nOM) (Ђ)                                 \r\n        89,99          1           89,99\r\n----------------------------------------\r\nУкупан износ:                      89,99\r\nГотовина:                         200,00\r\n========================================\r\nОзнака       Име      Стопа        Порез\r\nЂ           О-ПДВ   20,00%         15,00\r\n----------------------------------------\r\nУкупан износ пореза:               15,00\r\n========================================\r\nПФР време:          19.08.2026. 16:34:52\r\nПФР број рачуна: U56ZV6W7-U56ZV6W7-10483\r\n6                                       \r\nБројач рачуна:           104302/104836ПП\r\n========================================\r\n======== КРАЈ ФИСКАЛНОГ РАЧУНА =========",
+  "isValid": true
+}

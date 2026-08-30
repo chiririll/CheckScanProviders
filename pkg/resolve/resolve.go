@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/chiririll/CheckScanProviders/internal/eqpayload"
+	"github.com/chiririll/CheckScanProviders/internal/rspurs"
 	"github.com/chiririll/CheckScanProviders/internal/rufns"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
@@ -36,7 +37,7 @@ type jsonError struct {
 }
 
 func DefaultRegistry() *provider.Registry {
-	return provider.NewRegistry(eqpayload.New(), rufns.New())
+	return provider.NewRegistry(eqpayload.New(), rspurs.New(), rufns.New())
 }
 
 func MatchQR(rawQR, hint string, registry *provider.Registry) (Match, error) {
