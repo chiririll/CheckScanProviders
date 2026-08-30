@@ -1,0 +1,1 @@
+{"eq_version":"1.0.0","receipt":{"id":"550e8400-e29b-41d4-a716-446655440000","issued_at":"2026-08-28T18:42:00+03:00","currency":"RUB","receipt_type":"sale","merchant":{"name":"Пятёрочка"},"items":[{"description":"Молоко 1 л","quantity":2,"unit_price":89,"total_price":178}],"totals":{"grand_total":1247}}}

@@ -1,0 +1,1 @@
+{"eq_version":"1.0.0","receipt":{"id":"","issued_at":"2026-08-28T18:42:00+03:00","currency":"RUB","receipt_type":"sale","merchant":{"name":"Магнит"},"items":[{"description":"Хлеб","quantity":1,"unit_price":99,"total_price":99}],"totals":{"grand_total":99}}}

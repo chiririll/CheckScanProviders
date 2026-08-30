@@ -1,0 +1,6 @@
+/bin/
+*.exe
+*.so
+*.dylib
+*.a
+*.h.bak
