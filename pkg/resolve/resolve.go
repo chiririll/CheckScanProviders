@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/chiririll/CheckScanProviders/internal/eqpayload"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
+	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/internal/rspurs"
 	"github.com/chiririll/CheckScanProviders/internal/rufns"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
@@ -68,7 +70,7 @@ func MatchQR(rawQR, hint string, registry *provider.Registry) (Match, error) {
 	return Match{}, ErrUnknownFormat
 }
 
-func Resolve(ctx context.Context, rawQR, hint string, registry *provider.Registry) (Result, error) {
+func Resolve(ctx context.Context, rawQR, hint string, registry *provider.Registry, current *eq.Receipt) (Result, error) {
 	if registry == nil {
 		registry = DefaultRegistry()
 	}
@@ -83,6 +85,10 @@ func Resolve(ctx context.Context, rawQR, hint string, registry *provider.Registr
 	receipt, err := p.Parse(ctx, rawQR)
 	if err != nil {
 		return Result{}, err
+	}
+	if current != nil && !outcome.IsRicher(receipt, current) {
+		nativelog.Info("%s resolve keep current incoming not richer", nativelog.Call(ctx))
+		receipt = current
 	}
 	return Result{
 		AdapterID: match.AdapterID,
@@ -114,12 +120,12 @@ func MatchJSON(rawQR, hint string) string {
 	return string(b)
 }
 
-func ResolveJSON(ctx context.Context, rawQR, hint string) string {
+func ResolveJSON(ctx context.Context, rawQR, hint, currentJSON string) string {
 	id := nativelog.Next()
 	ctx = nativelog.WithCall(ctx, id)
-	nativelog.Info("%s resolve start remote=%v wait=%v hint=%q qr=%s",
-		id, provider.Remote(ctx), provider.Wait(ctx), hint, nativelog.Preview(rawQR, 96))
-	result, err := Resolve(ctx, rawQR, hint, nil)
+	nativelog.Info("%s resolve start remote=%v wait=%v hint=%q current=%v qr=%s",
+		id, provider.Remote(ctx), provider.Wait(ctx), hint, currentJSON != "", nativelog.Preview(rawQR, 96))
+	result, err := Resolve(ctx, rawQR, hint, nil, parseCurrent(currentJSON))
 	if err != nil {
 		code := "parse_error"
 		if errors.Is(err, ErrUnknownFormat) {
@@ -151,6 +157,18 @@ func ProvidersJSON() string {
 		return encodeError("parse_error", err.Error())
 	}
 	return string(b)
+}
+
+func parseCurrent(raw string) *eq.Receipt {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var receipt eq.Receipt
+	if err := json.Unmarshal([]byte(raw), &receipt); err != nil {
+		return nil
+	}
+	return &receipt
 }
 
 func encodeError(code, message string) string {

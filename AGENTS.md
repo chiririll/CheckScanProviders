@@ -17,7 +17,7 @@ Overview and `go test ./...`: [README.md](README.md).
 | [internal/](internal/) | One package per provider |
 | [testdata/](testdata/) | QR fixtures |
 
-`Parse` is local unless `provider.Remote(ctx)` is true (scan and refresh pass `remote`). `internal/httplimit` is a per-host request budget (sliding windows + 403/429/503 cooldown). It is not receipt storage: CheckScan already dedupes by QR hash in SQLite before `resolve`. Gate timestamps may be written under `TMPDIR` so a new isolate still sees the budget. A successful receipt with no line items sets `checkscan.items_unavailable`; an empty list without that flag is still incomplete.
+`Parse` is local unless `provider.Remote(ctx)` is true (scan and refresh pass `remote`). `internal/httplimit` is a per-host request budget (sliding windows + 403/429/503 cooldown). It is not receipt storage: CheckScan already dedupes by QR hash in SQLite before `resolve`. Gate timestamps may be written under `TMPDIR` so a new isolate still sees the budget. A successful receipt with no line items sets `checkscan.items_unavailable`; an empty list without that flag is still incomplete. `checkscan_resolve` may receive the stored receipt JSON; resolve keeps it unless the new parse is richer (more items, merchant, tax id, or a non-zero total).
 
 New formats live here, not in the Flutter app.
 

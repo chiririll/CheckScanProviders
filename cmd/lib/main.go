@@ -37,7 +37,7 @@ func checkscan_match(rawQR, hint *C.char) *C.char {
 }
 
 //export checkscan_resolve
-func checkscan_resolve(rawQR, hint, mode *C.char) *C.char {
+func checkscan_resolve(rawQR, hint, mode, current *C.char) *C.char {
 	ctx := context.Background()
 	switch gostr(mode) {
 	case "wait":
@@ -45,7 +45,7 @@ func checkscan_resolve(rawQR, hint, mode *C.char) *C.char {
 	case "remote":
 		ctx = provider.WithRemote(ctx, true)
 	}
-	return cjson(resolve.ResolveJSON(ctx, gostr(rawQR), gostr(hint)))
+	return cjson(resolve.ResolveJSON(ctx, gostr(rawQR), gostr(hint), gostr(current)))
 }
 
 //export checkscan_providers
