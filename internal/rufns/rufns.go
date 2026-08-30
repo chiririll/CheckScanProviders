@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
@@ -85,6 +86,9 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 		return receipt, nil
 	}
 	applyTicket(receipt, ticket)
+	if len(receipt.Items) == 0 {
+		outcome.MarkNoItems(receipt)
+	}
 	nativelog.Info("%s rufns ticket ok items=%d merchant=%q total=%g",
 		nativelog.Call(ctx), len(receipt.Items), receipt.MerchantName, receipt.GrandTotal)
 	return receipt, nil

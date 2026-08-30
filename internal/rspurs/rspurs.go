@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
@@ -102,6 +103,9 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 	nativelog.Info("%s rspurs fetch start", nativelog.Call(ctx))
 	remote, rerr := p.parseRemote(ctx, rawQR)
 	if rerr == nil {
+		if len(remote.Items) == 0 {
+			outcome.MarkNoItems(remote)
+		}
 		nativelog.Info("%s rspurs remote ok items=%d merchant=%q total=%g",
 			nativelog.Call(ctx), len(remote.Items), remote.MerchantName, remote.GrandTotal)
 		return remote, nil
@@ -110,6 +114,9 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 		if httplimit.IsLimit(rerr) {
 			nativelog.Warn("%s rspurs remote limited, fallback vl: %v", nativelog.Call(ctx), rerr)
 			httplimit.Mark(local)
+		} else if outcome.IsNoItems(rerr) {
+			nativelog.Warn("%s rspurs remote no items, fallback vl: %v", nativelog.Call(ctx), rerr)
+			outcome.MarkNoItems(local)
 		} else {
 			nativelog.Warn("%s rspurs remote err, fallback vl: %v", nativelog.Call(ctx), rerr)
 		}

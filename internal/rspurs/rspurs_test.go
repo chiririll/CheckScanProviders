@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
 
@@ -87,6 +88,24 @@ func TestParseLocalFromVL(t *testing.T) {
 	}
 	if len(receipt.Items) != 0 {
 		t.Fatal("vl has no items")
+	}
+}
+
+func TestParseRemote400MarksNoItems(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
+	p := Provider{Fetch: func(context.Context, string) ([]byte, error) {
+		return nil, errors.New("http_400")
+	}}
+	receipt, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.Extensions[outcome.ItemsUnavailableKey] != true {
+		t.Fatal("400 must be success without items")
+	}
+	if receipt.Extensions[httplimit.ExtensionKey] == true {
+		t.Fatal("400 is not a ban")
 	}
 }
 
@@ -203,6 +222,9 @@ func TestParseRefund(t *testing.T) {
 	}
 	if len(receipt.Items) != 0 {
 		t.Fatalf("items %d", len(receipt.Items))
+	}
+	if receipt.Extensions[outcome.ItemsUnavailableKey] != true {
+		t.Fatal("empty journal is success without items")
 	}
 }
 

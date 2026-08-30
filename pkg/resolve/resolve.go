@@ -166,11 +166,15 @@ func receiptSummary(r *eq.Receipt) string {
 		return "receipt=nil"
 	}
 	limited := false
+	noItems := false
 	if r.Extensions != nil {
 		if v, ok := r.Extensions["checkscan.rate_limited"].(bool); ok {
 			limited = v
 		}
+		if v, ok := r.Extensions["checkscan.items_unavailable"].(bool); ok {
+			noItems = v
+		}
 	}
-	return fmt.Sprintf("id=%s items=%d total=%g merchant=%q limited=%v",
-		r.ID, len(r.Items), r.GrandTotal, r.MerchantName, limited)
+	return fmt.Sprintf("id=%s items=%d total=%g merchant=%q limited=%v no_items=%v",
+		r.ID, len(r.Items), r.GrandTotal, r.MerchantName, limited, noItems)
 }
