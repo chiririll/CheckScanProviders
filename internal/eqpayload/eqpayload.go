@@ -20,7 +20,8 @@ func New() provider.Provider {
 	return Provider{}
 }
 
-func (Provider) ID() string { return ID }
+func (Provider) ID() string    { return ID }
+func (Provider) Label() string { return "EQ" }
 
 func (p Provider) CanHandle(rawQR string) (string, bool) {
 	text := strings.TrimSpace(rawQR)

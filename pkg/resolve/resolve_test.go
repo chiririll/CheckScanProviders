@@ -32,6 +32,9 @@ func TestMatchFNSQueryAndURLSameHash(t *testing.T) {
 	if q.Hash != want || u.Hash != want {
 		t.Fatalf("hash: %s / %s", q.Hash, u.Hash)
 	}
+	if q.Label != "RU" {
+		t.Fatalf("label %s", q.Label)
+	}
 }
 
 func TestMatchEQUsesReceiptID(t *testing.T) {
@@ -157,6 +160,9 @@ func TestProvidersJSON(t *testing.T) {
 	}
 	if len(list) != 3 || list[0]["id"] != "eq_payload" || list[1]["id"] != "rs_purs" || list[2]["id"] != "ru_fns" {
 		t.Fatalf("%v", list)
+	}
+	if list[0]["label"] != "EQ" || list[1]["label"] != "RS" || list[2]["label"] != "RU" {
+		t.Fatalf("labels: %v", list)
 	}
 }
 

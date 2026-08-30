@@ -8,6 +8,7 @@ import (
 
 type Provider interface {
 	ID() string
+	Label() string
 	CanHandle(rawQR string) (hash string, ok bool)
 	Parse(ctx context.Context, rawQR string) (*eq.Receipt, error)
 }

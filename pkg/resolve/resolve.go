@@ -20,11 +20,13 @@ var (
 type Match struct {
 	AdapterID string `json:"adapter_id"`
 	Hash      string `json:"hash"`
+	Label     string `json:"label"`
 }
 
 type Result struct {
 	AdapterID string      `json:"adapter_id"`
 	Hash      string      `json:"hash"`
+	Label     string      `json:"label"`
 	EqVersion string      `json:"eq_version"`
 	Receipt   *eq.Receipt `json:"receipt"`
 }
@@ -53,12 +55,12 @@ func MatchQR(rawQR, hint string, registry *provider.Registry) (Match, error) {
 		if !ok || hash == "" {
 			return Match{}, ErrUnknownFormat
 		}
-		return Match{AdapterID: p.ID(), Hash: hash}, nil
+		return matchOf(p, hash), nil
 	}
 	for _, p := range registry.All() {
 		hash, ok := p.CanHandle(rawQR)
 		if ok && hash != "" {
-			return Match{AdapterID: p.ID(), Hash: hash}, nil
+			return matchOf(p, hash), nil
 		}
 	}
 	return Match{}, ErrUnknownFormat
@@ -83,9 +85,14 @@ func Resolve(ctx context.Context, rawQR, hint string, registry *provider.Registr
 	return Result{
 		AdapterID: match.AdapterID,
 		Hash:      match.Hash,
+		Label:     match.Label,
 		EqVersion: eq.Version,
 		Receipt:   receipt,
 	}, nil
+}
+
+func matchOf(p provider.Provider, hash string) Match {
+	return Match{AdapterID: p.ID(), Hash: hash, Label: p.Label()}
 }
 
 func MatchJSON(rawQR, hint string) string {
@@ -118,11 +125,12 @@ func ResolveJSON(ctx context.Context, rawQR, hint string) string {
 
 func ProvidersJSON() string {
 	type item struct {
-		ID string `json:"id"`
+		ID    string `json:"id"`
+		Label string `json:"label"`
 	}
 	list := make([]item, 0)
 	for _, p := range DefaultRegistry().All() {
-		list = append(list, item{ID: p.ID()})
+		list = append(list, item{ID: p.ID(), Label: p.Label()})
 	}
 	b, err := json.Marshal(list)
 	if err != nil {

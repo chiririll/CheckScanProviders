@@ -33,7 +33,8 @@ func New() provider.Provider {
 	return Provider{}
 }
 
-func (Provider) ID() string { return ID }
+func (Provider) ID() string    { return ID }
+func (Provider) Label() string { return "RU" }
 
 func (p Provider) CanHandle(rawQR string) (string, bool) {
 	f := parseFields(rawQR)

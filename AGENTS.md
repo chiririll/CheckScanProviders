@@ -28,5 +28,6 @@ Do not change the C ABI without updating CheckScan FFI (`packages/providers_nati
 
 ## Conventions
 
+- This repo is the library only. No client surface: UI, copy, localization, images, or other presentation. That lives in CheckScan.
 - New code needs tests (`go test ./...`).
 - Keep files small. Split growing files; split a package when it starts doing more than one job.
