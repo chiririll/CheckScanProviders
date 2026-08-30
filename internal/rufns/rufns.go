@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chiririll/CheckScanProviders/internal/httplimit"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -59,11 +60,15 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 		return nil, errors.New("invalid_qr")
 	}
 	receipt := receiptFromFields(rawQR, f)
-	if p.token() == "" {
+	if !provider.Remote(ctx) || p.token() == "" {
 		return receipt, nil
 	}
-	body, err := p.fetch(ctx, f.qrraw())
+	qrraw := f.qrraw()
+	body, err := p.fetch(ctx, qrraw)
 	if err != nil {
+		if httplimit.IsLimit(err) {
+			httplimit.Mark(receipt)
+		}
 		return receipt, nil
 	}
 	ticket, err := parseTicket(body)

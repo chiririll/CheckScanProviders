@@ -11,8 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chiririll/CheckScanProviders/internal/httplimit"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
+
+const apiHost = "proverkacheka.com"
 
 const (
 	apiURL      = "https://proverkacheka.com/api/v1/check/get"
@@ -45,8 +49,15 @@ type ticketItem struct {
 }
 
 func (p Provider) fetch(ctx context.Context, qrraw string) ([]byte, error) {
+	if err := httplimit.Acquire(ctx, apiHost, provider.Wait(ctx)); err != nil {
+		return nil, err
+	}
 	if p.Fetch != nil {
-		return p.Fetch(ctx, qrraw)
+		body, err := p.Fetch(ctx, qrraw)
+		if err != nil {
+			httplimit.NoteError(apiHost, err)
+		}
+		return body, err
 	}
 	return defaultFetch(ctx, p.token(), qrraw)
 }
@@ -70,6 +81,7 @@ func defaultFetch(ctx context.Context, token, qrraw string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		httplimit.Note(apiHost, resp.StatusCode, resp.Header)
 		return nil, fmt.Errorf("http_%d", resp.StatusCode)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, maxBodySize))

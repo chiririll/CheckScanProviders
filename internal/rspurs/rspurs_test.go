@@ -4,12 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
 
 func TestCanHandleURL(t *testing.T) {
@@ -29,7 +33,112 @@ func TestCanHandleURL(t *testing.T) {
 	}
 }
 
+func TestParseRemote429KeepsVLAndBlocksNext(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
+	calls := 0
+	p := Provider{Fetch: func(context.Context, string) ([]byte, error) {
+		calls++
+		return nil, errors.New("http_429")
+	}}
+	first, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.GrandTotal != 89.99 || first.Extensions[httplimit.ExtensionKey] != true {
+		t.Fatalf("local+limited %#v", first)
+	}
+	second, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("second call must obey 429, got %d fetches", calls)
+	}
+	if second.GrandTotal != 89.99 {
+		t.Fatalf("total %v", second.GrandTotal)
+	}
+}
+
+func TestParseLocalFromVL(t *testing.T) {
+	called := false
+	p := Provider{Fetch: func(context.Context, string) ([]byte, error) {
+		called = true
+		return nil, errors.New("should not fetch")
+	}}
+	receipt, err := p.Parse(context.Background(), testdataURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("local parse must not hit HTTP")
+	}
+	if receipt.ID != "rs-U56ZV6W7-U56ZV6W7-104836" {
+		t.Fatalf("id %s", receipt.ID)
+	}
+	if receipt.GrandTotal != 89.99 {
+		t.Fatalf("total %v", receipt.GrandTotal)
+	}
+	if receipt.Currency != "RSD" || receipt.ReceiptType != "sale" {
+		t.Fatalf("meta %s %s", receipt.Currency, receipt.ReceiptType)
+	}
+	if !receipt.IssuedAt.Equal(time.Date(2026, 8, 19, 14, 34, 52, 0, time.UTC)) {
+		t.Fatalf("issued %v", receipt.IssuedAt)
+	}
+	if len(receipt.Items) != 0 {
+		t.Fatal("vl has no items")
+	}
+}
+
+func TestParseRemoteThrottledKeepsVLWithoutBanFlag(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
+	httplimit.OverridePolicy(hostSUF, httplimit.Policy{
+		Windows:         []httplimit.Window{{Limit: 1, Period: time.Hour}},
+		DefaultCooldown: time.Minute,
+	})
+	calls := 0
+	p := Provider{Fetch: func(context.Context, string) ([]byte, error) {
+		calls++
+		return testdataJSON(t), nil
+	}}
+	first, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t))
+	if err != nil || first.MerchantName != "UNIVEREXPORT" {
+		t.Fatalf("first %#v %v", first, err)
+	}
+	second, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t)+"&x=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("second scan must skip HTTP, got %d", calls)
+	}
+	if second.Extensions[httplimit.ExtensionKey] == true {
+		t.Fatal("client throttle must not look like a server ban")
+	}
+	if second.MerchantName != "" {
+		t.Fatal("throttled scan must stay on local VL")
+	}
+}
+
+func TestParseRemoteFailureKeepsVL(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
+	p := Provider{Fetch: func(context.Context, string) ([]byte, error) {
+		return nil, errors.New("offline")
+	}}
+	receipt, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.GrandTotal != 89.99 {
+		t.Fatalf("total %v", receipt.GrandTotal)
+	}
+}
+
 func TestParseFixture(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
 	rawURL := testdataURL(t)
 	body := testdataJSON(t)
 	p := Provider{Fetch: func(_ context.Context, got string) ([]byte, error) {
@@ -38,7 +147,7 @@ func TestParseFixture(t *testing.T) {
 		}
 		return body, nil
 	}}
-	receipt, err := p.Parse(context.Background(), rawURL)
+	receipt, err := p.Parse(provider.WithRemote(context.Background(), true), rawURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,6 +185,8 @@ func TestParseFixture(t *testing.T) {
 }
 
 func TestParseRefund(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
 	p := Provider{Fetch: func(context.Context, string) ([]byte, error) {
 		return []byte(`{
 			"invoiceRequest":{"taxId":"1","businessName":"Shop","transactionType":1},
@@ -83,7 +194,7 @@ func TestParseRefund(t *testing.T) {
 			"journal":"","isValid":true
 		}`), nil
 	}}
-	receipt, err := p.Parse(context.Background(), testdataURL(t))
+	receipt, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}

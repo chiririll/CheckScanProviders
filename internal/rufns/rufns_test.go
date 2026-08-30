@@ -2,11 +2,15 @@ package rufns
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
 
 func TestParseWithoutTokenStaysLocal(t *testing.T) {
@@ -23,7 +27,24 @@ func TestParseWithoutTokenStaysLocal(t *testing.T) {
 	}
 }
 
+func TestParseSkipsAPIUnlessRemote(t *testing.T) {
+	called := false
+	p := Provider{
+		Token: "test-token",
+		Fetch: func(context.Context, string) ([]byte, error) {
+			called = true
+			return nil, errors.New("should not fetch")
+		},
+	}
+	receipt, err := p.Parse(context.Background(), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
+	if err != nil || called || receipt.GrandTotal != 1247 {
+		t.Fatalf("local scan must skip API: err=%v called=%v total=%v", err, called, receipt.GrandTotal)
+	}
+}
+
 func TestParseUsesAPITicket(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
 	body := readTestdata(t, "proverkacheka.json")
 	var gotQR string
 	p := Provider{
@@ -33,7 +54,7 @@ func TestParseUsesAPITicket(t *testing.T) {
 			return body, nil
 		},
 	}
-	receipt, err := p.Parse(context.Background(), "t=20200924T1837&s=349.93&fn=9282440300682838&i=46534&fp=1273019065&n=1")
+	receipt, err := p.Parse(provider.WithRemote(context.Background(), true), "t=20200924T1837&s=349.93&fn=9282440300682838&i=46534&fp=1273019065&n=1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,14 +81,37 @@ func TestParseUsesAPITicket(t *testing.T) {
 	}
 }
 
+func TestParse429BlocksNextFetch(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
+	calls := 0
+	p := Provider{
+		Token: "test-token",
+		Fetch: func(context.Context, string) ([]byte, error) {
+			calls++
+			return nil, errors.New("http_429")
+		},
+	}
+	first, err := p.Parse(provider.WithRemote(context.Background(), true), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
+	if err != nil || first.GrandTotal != 1247 || first.Extensions[httplimit.ExtensionKey] != true {
+		t.Fatalf("first %#v %v", first, err)
+	}
+	_, err = p.Parse(provider.WithRemote(context.Background(), true), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
+	if err != nil || calls != 1 {
+		t.Fatalf("gate: calls=%d err=%v", calls, err)
+	}
+}
+
 func TestParseAPIFailureKeepsQRTotal(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(httplimit.ResetAll)
 	p := Provider{
 		Token: "test-token",
 		Fetch: func(context.Context, string) ([]byte, error) {
 			return []byte(`{"code":3}`), nil
 		},
 	}
-	receipt, err := p.Parse(context.Background(), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
+	receipt, err := p.Parse(provider.WithRemote(context.Background(), true), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
 	if err != nil {
 		t.Fatal(err)
 	}

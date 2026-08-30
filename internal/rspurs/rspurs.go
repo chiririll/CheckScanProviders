@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chiririll/CheckScanProviders/internal/httplimit"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -87,6 +88,28 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 }
 
 func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
+	vl, ok := extractVL(rawQR)
+	if !ok {
+		return nil, errors.New("invalid_qr")
+	}
+	local, err := receiptFromVL(rawQR, vl)
+	if !provider.Remote(ctx) {
+		return local, err
+	}
+	remote, rerr := p.parseRemote(ctx, rawQR)
+	if rerr == nil {
+		return remote, nil
+	}
+	if err == nil {
+		if httplimit.IsLimit(rerr) {
+			httplimit.Mark(local)
+		}
+		return local, nil
+	}
+	return nil, rerr
+}
+
+func (p Provider) parseRemote(ctx context.Context, rawQR string) (*eq.Receipt, error) {
 	pageURL, ok := extractURL(rawQR)
 	if !ok {
 		return nil, errors.New("invalid_qr")
@@ -95,6 +118,10 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 	if err != nil {
 		return nil, err
 	}
+	return receiptFromJSON(rawQR, body)
+}
+
+func receiptFromJSON(rawQR string, body []byte) (*eq.Receipt, error) {
 	var inv invoiceJSON
 	if err := json.Unmarshal(body, &inv); err != nil {
 		return nil, errors.New("invalid_json")
@@ -157,8 +184,15 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 }
 
 func (p Provider) fetch(ctx context.Context, rawURL string) ([]byte, error) {
+	if err := httplimit.Acquire(ctx, hostSUF, provider.Wait(ctx)); err != nil {
+		return nil, err
+	}
 	if p.Fetch != nil {
-		return p.Fetch(ctx, rawURL)
+		body, err := p.Fetch(ctx, rawURL)
+		if err != nil {
+			httplimit.NoteError(hostSUF, err)
+		}
+		return body, err
 	}
 	return defaultFetch(ctx, rawURL)
 }
@@ -177,6 +211,7 @@ func defaultFetch(ctx context.Context, rawURL string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		httplimit.Note(hostSUF, resp.StatusCode, resp.Header)
 		return nil, fmt.Errorf("http_%d", resp.StatusCode)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, maxBodySize))

@@ -9,8 +9,14 @@ import (
 	"context"
 	"unsafe"
 
+	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/pkg/provider"
 	"github.com/chiririll/CheckScanProviders/pkg/resolve"
 )
+
+func init() {
+	httplimit.EnablePersist()
+}
 
 func gostr(p *C.char) string {
 	if p == nil {
@@ -29,8 +35,15 @@ func checkscan_match(rawQR, hint *C.char) *C.char {
 }
 
 //export checkscan_resolve
-func checkscan_resolve(rawQR, hint *C.char) *C.char {
-	return cjson(resolve.ResolveJSON(context.Background(), gostr(rawQR), gostr(hint)))
+func checkscan_resolve(rawQR, hint, mode *C.char) *C.char {
+	ctx := context.Background()
+	switch gostr(mode) {
+	case "wait":
+		ctx = provider.WithWait(provider.WithRemote(ctx, true), true)
+	case "remote":
+		ctx = provider.WithRemote(ctx, true)
+	}
+	return cjson(resolve.ResolveJSON(ctx, gostr(rawQR), gostr(hint)))
 }
 
 //export checkscan_providers

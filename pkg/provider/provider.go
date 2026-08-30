@@ -6,6 +6,39 @@ import (
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 )
 
+type remoteKey struct{}
+type waitKey struct{}
+
+func WithRemote(ctx context.Context, remote bool) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, remoteKey{}, remote)
+}
+
+func Remote(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	remote, _ := ctx.Value(remoteKey{}).(bool)
+	return remote
+}
+
+func WithWait(ctx context.Context, wait bool) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, waitKey{}, wait)
+}
+
+func Wait(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	wait, _ := ctx.Value(waitKey{}).(bool)
+	return wait
+}
+
 type Provider interface {
 	ID() string
 	Label() string
