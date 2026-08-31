@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$jniRoot = Join-Path $root "flutter\android\src\main\jniLibs"
+$jniRoot = Join-Path $root "adapters\flutter\android\src\main\jniLibs"
 
 function Read-Prop([string]$Path, [string]$Key) {
     if (-not (Test-Path $Path)) { return $null }

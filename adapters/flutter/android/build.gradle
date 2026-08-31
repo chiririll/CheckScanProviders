@@ -36,7 +36,7 @@ def jniDir = file("src/main/jniLibs")
 def stampFile = file("${jniDir}/.native_version")
 
 def nativeVersion() {
-    def pubspec = file("../../pubspec.yaml")
+    def pubspec = file("../pubspec.yaml")
     def matcher = pubspec.getText("UTF-8") =~ /(?m)^version:\s*(\S+)/
     if (!matcher.find()) {
         throw new GradleException("version not found in ${pubspec}")
@@ -103,7 +103,7 @@ def downloadRelease(String url, File dest) {
         def conn = (java.net.HttpURLConnection) new URL(current).openConnection()
         conn.instanceFollowRedirects = false
         conn.setRequestMethod("GET")
-        conn.setRequestProperty("User-Agent", "CheckScanProviders-flutter")
+        conn.setRequestProperty("User-Agent", "CheckScanProviders-adapters-flutter")
         def token = System.getenv("GITHUB_TOKEN") ?: System.getenv("GH_TOKEN")
         if (token) {
             conn.setRequestProperty("Authorization", "Bearer ${token}")

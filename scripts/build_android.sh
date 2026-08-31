@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-JNI_ROOT="$ROOT/flutter/android/src/main/jniLibs"
+JNI_ROOT="$ROOT/adapters/flutter/android/src/main/jniLibs"
 if [[ $# -eq 0 ]]; then
   ABIS=(arm64-v8a x86_64)
 else

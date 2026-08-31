@@ -6,14 +6,14 @@
 *.h.bak
 local.properties
 
-flutter/pubspec.lock
-flutter/.dart_tool/
-flutter/.flutter-plugins
-flutter/.flutter-plugins-dependencies
-flutter/.packages
-flutter/.pub-cache/
-flutter/.pub/
-flutter/build/
-flutter/android/.gradle/
-flutter/android/local.properties
-flutter/android/src/main/jniLibs/.native_version
+adapters/flutter/pubspec.lock
+adapters/flutter/.dart_tool/
+adapters/flutter/.flutter-plugins
+adapters/flutter/.flutter-plugins-dependencies
+adapters/flutter/.packages
+adapters/flutter/.pub-cache/
+adapters/flutter/.pub/
+adapters/flutter/build/
+adapters/flutter/android/.gradle/
+adapters/flutter/android/local.properties
+adapters/flutter/android/src/main/jniLibs/.native_version

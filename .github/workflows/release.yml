@@ -32,7 +32,7 @@ jobs:
           python3 - <<'PY'
           import pathlib
           import zipfile
-          root = pathlib.Path("flutter/android/src/main/jniLibs")
+          root = pathlib.Path("adapters/flutter/android/src/main/jniLibs")
           files = sorted(root.glob("*/libcheckscan.so"))
           if not files:
               raise SystemExit("no libcheckscan.so files to pack")

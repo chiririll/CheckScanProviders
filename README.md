@@ -2,8 +2,7 @@
 
 Go library for receipt QR providers. Used as a C-shared native library inside CheckScan.
 
-Public API: `pkg/resolve` (`Match` / `Resolve`). C ABI: `include/checkscan.h`.
-Flutter FFI plugin: `flutter/` (`providers_native`).
+Public API: `pkg/resolve` (`Match` / `Resolve`). Host bindings live under `adapters/`: C ABI in `adapters/c/include/checkscan.h`, Flutter FFI in `adapters/flutter/` (`providers_native`).
 
 ```
 go test ./...
@@ -11,7 +10,7 @@ go test ./...
 
 ## Android library
 
-Tag `vX.Y.Z` (same as `flutter/pubspec.yaml` `version`) and push. [Release](.github/workflows/release.yml) builds `libcheckscan.so` and uploads `android-jniLibs.zip`.
+Tag `vX.Y.Z` (same as `adapters/flutter/pubspec.yaml` `version`) and push. [Release](.github/workflows/release.yml) builds `libcheckscan.so` and uploads `android-jniLibs.zip`.
 
 The Flutter plugin downloads that zip on `preBuild` when local `.so` files are missing.
 

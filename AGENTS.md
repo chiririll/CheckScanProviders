@@ -11,12 +11,12 @@ Overview and `go test ./...`: [README.md](README.md).
 | [pkg/resolve](pkg/resolve/resolve.go) | Public API: `Match` / `Resolve`, default registry |
 | [pkg/provider](pkg/provider/provider.go) | `Provider` interface |
 | [pkg/eq](pkg/eq/receipt.go) | Receipt JSON model |
-| [include/checkscan.h](include/checkscan.h) | C ABI (`checkscan_match` / `resolve` / `settings` / `set_config` / `set_log`) |
-| [cmd/lib](cmd/lib/main.go) | c-shared exports |
+| [adapters/c/include/checkscan.h](adapters/c/include/checkscan.h) | C adapter: ABI (`checkscan_match` / `resolve` / `settings` / `set_config` / `set_log`) |
+| [cmd/lib](cmd/lib/main.go) | c-shared implementation of the C adapter |
 | [internal/nativelog](internal/nativelog/nativelog.go) | Library logs: stderr, or host `checkscan_set_log` |
 | [internal/](internal/) | One package per provider |
 | [testdata/](testdata/) | QR fixtures |
-| [flutter/](flutter/) | Flutter FFI plugin (`providers_native`) |
+| [adapters/flutter/](adapters/flutter/) | Flutter adapter: FFI plugin (`providers_native`) |
 | [scripts/build_android.sh](scripts/build_android.sh) | Local Android `.so` build (also [`.ps1`](scripts/build_android.ps1)) |
 | [.github/workflows/release.yml](.github/workflows/release.yml) | Tag `v*` → GitHub Release with `android-jniLibs.zip` |
 
@@ -31,11 +31,11 @@ New formats live here, not in the Flutter app.
 3. Cover match + parse with tests (use [testdata/](testdata/) when the QR is non-trivial).
 4. If the provider needs a host secret, implement `provider.HasSecrets` and read it via `nativecfg.Get(id + "." + secretID)`.
 
-Do not change the C ABI without updating the Flutter FFI in [flutter/](flutter/).
+Do not change the C ABI in [adapters/c/](adapters/c/) without updating the Flutter FFI in [adapters/flutter/](adapters/flutter/).
 
 ## Native release
 
-1. Bump `version` in [flutter/pubspec.yaml](flutter/pubspec.yaml).
+1. Bump `version` in [adapters/flutter/pubspec.yaml](adapters/flutter/pubspec.yaml).
 2. Tag `vX.Y.Z` and push. CI uploads `android-jniLibs.zip`.
 3. CheckScan's plugin `preBuild` fetches that asset when local `.so` files are missing.
 
