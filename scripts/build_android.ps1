@@ -86,7 +86,7 @@ foreach ($abi in $Abis) {
     $env:GOARCH = $meta.GoArch
     $env:CGO_ENABLED = "1"
     $env:CC = $clang
-    $env:CGO_LDFLAGS = "-Wl,-soname,libcheckscan.so -llog"
+    $env:CGO_LDFLAGS = "-Wl,-soname,libcheckscan.so -llog -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
     Push-Location $root
     try {
         go build -buildmode=c-shared -o $outSo ./cmd/lib

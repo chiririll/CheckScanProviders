@@ -39,6 +39,8 @@ Do not change the C ABI in [adapters/c/](adapters/c/) without updating the Flutt
 2. Tag `vX.Y.Z` and push. CI uploads `android-jniLibs.zip`.
 3. CheckScan's plugin `preBuild` fetches that asset when local `.so` files are missing.
 
+Android `.so` files must be 16 KB ELF-aligned (`-Wl,-z,max-page-size=16384`). CI checks this with [scripts/check_elf_align.py](scripts/check_elf_align.py).
+
 JSON replies use `{status, message, data}` with HTTP-like status classes (`pkg/status`: 200/206/4xx/5xx). `checkscan_settings` lists `{fields:[{key,type,label}]}`. The host stores values and calls `checkscan_set_config`. Do not log secret values.
 
 ## Conventions

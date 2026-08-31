@@ -21,12 +21,14 @@ jobs:
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: r27c
+          ndk-version: r28c
           add-to-path: false
       - name: Build Android libraries
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: bash scripts/build_android.sh
+      - name: Check 16KB ELF alignment
+        run: python3 scripts/check_elf_align.py adapters/flutter/android/src/main/jniLibs
       - name: Pack jniLibs
         run: |
           python3 - <<'PY'

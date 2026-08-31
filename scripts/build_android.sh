@@ -120,7 +120,7 @@ for abi in "${ABIS[@]}"; do
     export GOARCH="$(go_arch_for "$abi")"
     export CGO_ENABLED=1
     export CC="$clang"
-    export CGO_LDFLAGS="-Wl,-soname,libcheckscan.so -llog"
+    export CGO_LDFLAGS="-Wl,-soname,libcheckscan.so -llog -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
     go build -buildmode=c-shared -o "$out_so" ./cmd/lib
   )
   rm -f "${out_so%.so}.h"
