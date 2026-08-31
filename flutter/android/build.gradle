@@ -1,0 +1,134 @@
+group = "com.checkscan.providers_native"
+version = "1.0"
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "com.checkscan.providers_native"
+    compileSdk = 36
+
+    defaultConfig {
+        minSdk = 24
+    }
+
+    sourceSets {
+        main.jniLibs.srcDirs += ["src/main/jniLibs"]
+    }
+}
+
+def githubRepo = "chiririll/CheckScanProviders"
+def nativeAsset = "android-jniLibs.zip"
+def jniDir = file("src/main/jniLibs")
+def stampFile = file("${jniDir}/.native_version")
+
+def nativeVersion() {
+    def pubspec = file("../../pubspec.yaml")
+    def matcher = pubspec.getText("UTF-8") =~ /(?m)^version:\s*(\S+)/
+    if (!matcher.find()) {
+        throw new GradleException("version not found in ${pubspec}")
+    }
+    return matcher.group(1).trim().split("\\+", 2)[0]
+}
+
+def releaseTag(String version) {
+    return version.startsWith("v") ? version : "v${version}"
+}
+
+def hasNativeLibs() {
+    return !fileTree(jniDir).include("**/libcheckscan.so").isEmpty()
+}
+
+tasks.register("fetchNativeLibs") {
+    doLast {
+        def version = nativeVersion()
+        def tag = releaseTag(version)
+        def force = System.getenv("CHECKSCAN_FORCE_NATIVE_FETCH") == "1"
+        def localOverride = hasNativeLibs() && !stampFile.exists()
+        def stampMatches = stampFile.exists() && stampFile.getText("UTF-8").trim() == tag
+        if (!force && hasNativeLibs() && (localOverride || stampMatches)) {
+            logger.lifecycle("libcheckscan.so present (${localOverride ? "local build" : tag}), skip download")
+            return
+        }
+
+        def url = System.getenv("CHECKSCAN_NATIVE_URL")
+        if (url == null || url.trim().isEmpty()) {
+            url = "https://github.com/${githubRepo}/releases/download/${tag}/${nativeAsset}"
+        }
+
+        def zip = file("${buildDir}/${nativeAsset}")
+        zip.parentFile.mkdirs()
+        logger.lifecycle("Downloading ${url}")
+        try {
+            downloadRelease(url, zip)
+        } catch (Exception e) {
+            throw new GradleException(
+                "Failed to download ${url}. Publish a GitHub Release tagged ${tag}, or build locally with scripts/build_android.ps1 / scripts/build_android.sh.",
+                e
+            )
+        }
+
+        delete fileTree(jniDir).include("**/*.so")
+        copy {
+            from zipTree(zip)
+            into jniDir
+            include "**/libcheckscan.so"
+        }
+        if (!hasNativeLibs()) {
+            throw new GradleException("Downloaded ${url} but libcheckscan.so is still missing.")
+        }
+        stampFile.setText(tag, "UTF-8")
+        logger.lifecycle("Installed libcheckscan.so from ${tag}")
+    }
+}
+
+tasks.named("preBuild").configure { dependsOn("fetchNativeLibs") }
+
+def downloadRelease(String url, File dest) {
+    def current = url
+    for (int hop = 0; hop < 8; hop++) {
+        def conn = (java.net.HttpURLConnection) new URL(current).openConnection()
+        conn.instanceFollowRedirects = false
+        conn.setRequestMethod("GET")
+        conn.setRequestProperty("User-Agent", "CheckScanProviders-flutter")
+        def token = System.getenv("GITHUB_TOKEN") ?: System.getenv("GH_TOKEN")
+        if (token) {
+            conn.setRequestProperty("Authorization", "Bearer ${token}")
+            conn.setRequestProperty("Accept", "application/octet-stream")
+        }
+        conn.connect()
+        def code = conn.responseCode
+        if (code >= 300 && code < 400) {
+            def next = conn.getHeaderField("Location")
+            conn.disconnect()
+            if (next == null || next.trim().isEmpty()) {
+                throw new GradleException("Redirect without Location from ${current}")
+            }
+            current = next
+            continue
+        }
+        if (code != 200) {
+            conn.disconnect()
+            throw new GradleException("HTTP ${code} from ${current}")
+        }
+        dest.withOutputStream { os ->
+            conn.inputStream.withStream { is -> os << is }
+        }
+        conn.disconnect()
+        return
+    }
+    throw new GradleException("Too many redirects while downloading ${url}")
+}

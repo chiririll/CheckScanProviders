@@ -4,3 +4,16 @@
 *.dylib
 *.a
 *.h.bak
+local.properties
+
+flutter/pubspec.lock
+flutter/.dart_tool/
+flutter/.flutter-plugins
+flutter/.flutter-plugins-dependencies
+flutter/.packages
+flutter/.pub-cache/
+flutter/.pub/
+flutter/build/
+flutter/android/.gradle/
+flutter/android/local.properties
+flutter/android/src/main/jniLibs/.native_version

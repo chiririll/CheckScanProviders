@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: go test ./...
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+          add-to-path: false
+      - name: Build Android libraries
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          PROVERKACHEKA_TOKEN: ${{ secrets.PROVERKACHEKA_TOKEN }}
+        run: bash scripts/build_android.sh
+      - name: Pack jniLibs
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import zipfile
+          root = pathlib.Path("flutter/android/src/main/jniLibs")
+          files = sorted(root.glob("*/libcheckscan.so"))
+          if not files:
+              raise SystemExit("no libcheckscan.so files to pack")
+          dest = pathlib.Path("android-jniLibs.zip")
+          with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
+              for path in files:
+                  zf.write(path, path.relative_to(root).as_posix())
+                  print(f"packed {path.relative_to(root).as_posix()}")
+          PY
+          sha256sum android-jniLibs.zip | tee android-jniLibs.zip.sha256
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android-jniLibs.zip
+            android-jniLibs.zip.sha256
+          generate_release_notes: true
+          fail_on_unmatched_files: true

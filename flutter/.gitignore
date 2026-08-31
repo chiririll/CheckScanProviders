@@ -1,0 +1,14 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.iml
+
+android/.gradle/
+android/local.properties
+android/src/main/jniLibs/**/*.so
+android/src/main/jniLibs/**/*.h
+android/src/main/jniLibs/.native_version
