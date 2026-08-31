@@ -22,4 +22,4 @@ Local rebuild (Go + Android NDK):
 ./scripts/build_android.ps1
 ```
 
-Needs Go 1.22+ and an NDK (`ANDROID_NDK_HOME` or `ndk.dir` in `local.properties`). Provider secrets (tokens) are not baked into the `.so`: the host calls `checkscan_set_config` with values from `checkscan_providers` `secrets`.
+Needs Go 1.22+ and an NDK (`ANDROID_NDK_HOME` or `ndk.dir` in `local.properties`). Native JSON is `{status, message, data}` (`status` is HTTP-like). Settings schema: `checkscan_settings`. Secrets stay out of the `.so`; the host calls `checkscan_set_config`.

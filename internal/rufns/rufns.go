@@ -11,8 +11,8 @@ import (
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
 	"github.com/chiririll/CheckScanProviders/internal/nativecfg"
-	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
+	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -65,8 +65,13 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 		return nil, errors.New("invalid_qr")
 	}
 	receipt := receiptFromFields(rawQR, f)
-	if !provider.Remote(ctx) || p.token() == "" {
-		nativelog.Info("%s rufns local-only remote=%v token=%v", nativelog.Call(ctx), provider.Remote(ctx), p.token() != "")
+	if !provider.Remote(ctx) {
+		nativelog.Info("%s rufns local-only remote=false", nativelog.Call(ctx))
+		return receipt, nil
+	}
+	if p.token() == "" {
+		nativelog.Info("%s rufns needs_secret", nativelog.Call(ctx))
+		outcome.MarkNeedsSecret(receipt)
 		return receipt, nil
 	}
 	qrraw := f.qrraw()
@@ -78,6 +83,7 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 			httplimit.Mark(receipt)
 		} else {
 			nativelog.Warn("%s rufns fetch err: %v", nativelog.Call(ctx), err)
+			outcome.MarkUnavailable(receipt)
 		}
 		return receipt, nil
 	}

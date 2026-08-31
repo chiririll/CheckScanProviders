@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
-	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
+	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
@@ -119,6 +119,7 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 			outcome.MarkNoItems(local)
 		} else {
 			nativelog.Warn("%s rspurs remote err, fallback vl: %v", nativelog.Call(ctx), rerr)
+			outcome.MarkUnavailable(local)
 		}
 		return local, nil
 	}

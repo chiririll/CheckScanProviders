@@ -12,6 +12,8 @@ char* checkscan_match(const char* raw_qr, const char* adapter_hint);
 /* mode: empty = local QR/vl only; "remote" = fetch if the host gate is ready; "wait" = fetch and wait for the min interval */
 /* current_json may be NULL or empty; when set, the library keeps it unless the new receipt is richer. */
 char* checkscan_resolve(const char* raw_qr, const char* adapter_hint, const char* mode, const char* current_json);
+char* checkscan_settings(void);
+/* Same payload as checkscan_settings. Kept so older hosts still resolve the symbol. */
 char* checkscan_providers(void);
 /* json object of secret id -> value, e.g. {"ru_fns.token":"..."}. Replaces the previous map. */
 void  checkscan_set_config(const char* json);

@@ -14,6 +14,17 @@ import (
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
 
+func TestParseRemoteWithoutTokenMarksNeedsSecret(t *testing.T) {
+	p := Provider{}
+	receipt, err := p.Parse(provider.WithRemote(context.Background(), true), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.Extensions["checkscan.needs_secret"] != true {
+		t.Fatalf("extensions %#v", receipt.Extensions)
+	}
+}
+
 func TestParseWithoutTokenStaysLocal(t *testing.T) {
 	p := Provider{}
 	receipt, err := p.Parse(context.Background(), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")

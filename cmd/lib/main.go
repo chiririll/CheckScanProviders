@@ -49,9 +49,14 @@ func checkscan_resolve(rawQR, hint, mode, current *C.char) *C.char {
 	return cjson(resolve.ResolveJSON(ctx, gostr(rawQR), gostr(hint), gostr(current)))
 }
 
+//export checkscan_settings
+func checkscan_settings() *C.char {
+	return cjson(resolve.SettingsJSON())
+}
+
 //export checkscan_providers
 func checkscan_providers() *C.char {
-	return cjson(resolve.ProvidersJSON())
+	return cjson(resolve.SettingsJSON())
 }
 
 //export checkscan_set_config

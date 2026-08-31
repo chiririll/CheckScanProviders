@@ -5,6 +5,8 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 
+import 'decode.dart';
+import 'envelope.dart';
 import 'native_log.dart';
 
 typedef _CStrFn = Pointer<Utf8> Function();
@@ -17,12 +19,12 @@ class NativeProvidersLib {
   NativeProvidersLib._(DynamicLibrary lib)
       : _match = lib.lookupFunction<_CStr2Fn, _CStr2Fn>('checkscan_match'),
         _resolve = lib.lookupFunction<_CStr4Fn, _CStr4Fn>('checkscan_resolve'),
-        _providers = lib.lookupFunction<_CStrFn, _CStrFn>('checkscan_providers'),
+        _settings = lib.lookupFunction<_CStrFn, _CStrFn>('checkscan_settings'),
         _setConfig = lib.lookupFunction<_CSetConfigFn, void Function(Pointer<Utf8>)>('checkscan_set_config'),
         _free = lib.lookupFunction<_CFreeFn, void Function(Pointer<Utf8>)>('checkscan_free');
   final _CStr2Fn _match;
   final _CStr4Fn _resolve;
-  final _CStrFn _providers;
+  final _CStrFn _settings;
   final void Function(Pointer<Utf8>) _setConfig;
   final void Function(Pointer<Utf8>) _free;
 
@@ -50,10 +52,10 @@ class NativeProvidersLib {
     return _call4(_resolve, rawQr, hint, mode, current);
   }
 
-  String providers() {
-    final ptr = _providers();
+  String settings() {
+    final ptr = _settings();
     if (ptr == nullptr) {
-      throw StateError('checkscan_providers returned null');
+      throw StateError('checkscan_settings returned null');
     }
     try {
       return ptr.toDartString();
@@ -101,33 +103,38 @@ class NativeProvidersLib {
 }
 
 class IsolatedNativeProviders {
-  IsolatedNativeProviders({Map<String, String> Function()? config}) : _config = config ?? _emptyConfig;
+  IsolatedNativeProviders({Map<String, String>? config}) : _config = Map<String, String>.from(config ?? const {});
 
-  final Map<String, String> Function() _config;
+  Map<String, String> _config;
 
-  static Map<String, String> _emptyConfig() => const {};
-
-  Future<String> match(String rawQr, {String hint = ''}) {
-    final config = Map<String, String>.from(_config());
-    return Isolate.run(() => _withLog(config, (lib) => lib.match(rawQr, hint: hint)));
+  void configure(Map<String, String> snapshot) {
+    _config = Map<String, String>.from(snapshot);
   }
 
-  Future<String> resolve(
+  Future<NativeEnvelope<NativeMatch>> match(String rawQr, {String hint = ''}) async {
+    final config = Map<String, String>.from(_config);
+    final raw = await Isolate.run(() => _withLog(config, (lib) => lib.match(rawQr, hint: hint)));
+    return decodeEnvelope(raw, decodeMatch);
+  }
+
+  Future<NativeEnvelope<NativeResolve>> resolve(
     String rawQr, {
     String hint = '',
     bool remote = false,
     bool wait = false,
     String current = '',
-  }) {
-    final config = Map<String, String>.from(_config());
-    return Isolate.run(
+  }) async {
+    final config = Map<String, String>.from(_config);
+    final raw = await Isolate.run(
       () => _withLog(config, (lib) => lib.resolve(rawQr, hint: hint, remote: remote, wait: wait, current: current)),
     );
+    return decodeEnvelope(raw, decodeResolve);
   }
 
-  Future<String> providers() {
-    final config = Map<String, String>.from(_config());
-    return Isolate.run(() => _withLog(config, (lib) => lib.providers()));
+  Future<NativeEnvelope<List<SettingField>>> settings() async {
+    final config = Map<String, String>.from(_config);
+    final raw = await Isolate.run(() => _withLog(config, (lib) => lib.settings()));
+    return decodeEnvelope(raw, decodeSettings);
   }
 
   static T _withLog<T>(Map<String, String> config, T Function(NativeProvidersLib lib) body) {

@@ -11,7 +11,7 @@ Overview and `go test ./...`: [README.md](README.md).
 | [pkg/resolve](pkg/resolve/resolve.go) | Public API: `Match` / `Resolve`, default registry |
 | [pkg/provider](pkg/provider/provider.go) | `Provider` interface |
 | [pkg/eq](pkg/eq/receipt.go) | Receipt JSON model |
-| [include/checkscan.h](include/checkscan.h) | C ABI (`checkscan_match` / `resolve` / `providers` / `set_config` / `set_log`) |
+| [include/checkscan.h](include/checkscan.h) | C ABI (`checkscan_match` / `resolve` / `settings` / `set_config` / `set_log`) |
 | [cmd/lib](cmd/lib/main.go) | c-shared exports |
 | [internal/nativelog](internal/nativelog/nativelog.go) | Library logs: stderr, or host `checkscan_set_log` |
 | [internal/](internal/) | One package per provider |
@@ -39,7 +39,7 @@ Do not change the C ABI without updating the Flutter FFI in [flutter/](flutter/)
 2. Tag `vX.Y.Z` and push. CI uploads `android-jniLibs.zip`.
 3. CheckScan's plugin `preBuild` fetches that asset when local `.so` files are missing.
 
-Provider secrets stay out of the binary. A provider that needs a host value implements `provider.HasSecrets`. `checkscan_providers` lists `{id,label,secrets}`; the host stores values and calls `checkscan_set_config` with `{"<provider_id>.<secret_id>":"..."}`. Do not log secret values.
+JSON replies use `{status, message, data}` with HTTP-like status classes (`pkg/status`: 200/206/4xx/5xx). `checkscan_settings` lists `{fields:[{key,type,label}]}`. The host stores values and calls `checkscan_set_config`. Do not log secret values.
 
 ## Conventions
 

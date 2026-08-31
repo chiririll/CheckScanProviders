@@ -14,6 +14,7 @@ import (
 	"github.com/chiririll/CheckScanProviders/internal/rufns"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
+	"github.com/chiririll/CheckScanProviders/pkg/status"
 )
 
 var (
@@ -35,11 +36,10 @@ type Result struct {
 	Receipt   *eq.Receipt `json:"receipt"`
 }
 
-type jsonError struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
+type SettingField struct {
+	Key   string `json:"key"`
+	Type  string `json:"type"`
+	Label string `json:"label"`
 }
 
 func DefaultRegistry() *provider.Registry {
@@ -108,16 +108,12 @@ func MatchJSON(rawQR, hint string) string {
 	nativelog.Info("%s match start hint=%q qr=%s", id, hint, nativelog.Preview(rawQR, 96))
 	match, err := MatchQR(rawQR, hint, nil)
 	if err != nil {
-		nativelog.Info("%s match unknown_format", id)
-		return encodeError("unknown_format", err.Error())
+		code, message := Classify(nil, err)
+		nativelog.Info("%s match status=%d", id, code)
+		return encodeEnvelope(code, message, nil)
 	}
 	nativelog.Info("%s match ok adapter=%s hash=%s label=%s", id, match.AdapterID, match.Hash, match.Label)
-	b, err := json.Marshal(match)
-	if err != nil {
-		nativelog.Error("%s match encode: %v", id, err)
-		return encodeError("parse_error", err.Error())
-	}
-	return string(b)
+	return encodeEnvelope(status.OK, "", match)
 }
 
 func ResolveJSON(ctx context.Context, rawQR, hint, currentJSON string) string {
@@ -127,41 +123,34 @@ func ResolveJSON(ctx context.Context, rawQR, hint, currentJSON string) string {
 		id, provider.Remote(ctx), provider.Wait(ctx), hint, currentJSON != "", nativelog.Preview(rawQR, 96))
 	result, err := Resolve(ctx, rawQR, hint, nil, parseCurrent(currentJSON))
 	if err != nil {
-		code := "parse_error"
-		if errors.Is(err, ErrUnknownFormat) {
-			code = "unknown_format"
-		}
-		nativelog.Error("%s resolve %s: %v", id, code, err)
-		return encodeError(code, err.Error())
+		code, message := Classify(nil, err)
+		nativelog.Error("%s resolve status=%d: %s", id, code, message)
+		return encodeEnvelope(code, message, nil)
 	}
-	nativelog.Info("%s resolve ok adapter=%s hash=%s %s", id, result.AdapterID, result.Hash, receiptSummary(result.Receipt))
-	b, err := json.Marshal(result)
-	if err != nil {
-		nativelog.Error("%s resolve encode: %v", id, err)
-		return encodeError("parse_error", err.Error())
-	}
-	return string(b)
+	code, message := Classify(result.Receipt, nil)
+	nativelog.Info("%s resolve status=%d adapter=%s hash=%s %s", id, code, result.AdapterID, result.Hash, receiptSummary(result.Receipt))
+	return encodeEnvelope(code, message, result)
 }
 
-func ProvidersJSON() string {
-	type item struct {
-		ID      string            `json:"id"`
-		Label   string            `json:"label"`
-		Secrets []provider.Secret `json:"secrets,omitempty"`
-	}
-	list := make([]item, 0)
+func SettingsJSON() string {
+	fields := make([]SettingField, 0)
 	for _, p := range DefaultRegistry().All() {
-		entry := item{ID: p.ID(), Label: p.Label()}
-		if cfg, ok := p.(provider.HasSecrets); ok {
-			entry.Secrets = cfg.Secrets()
+		cfg, ok := p.(provider.HasSecrets)
+		if !ok {
+			continue
 		}
-		list = append(list, entry)
+		for _, secret := range cfg.Secrets() {
+			if secret.ID == "" {
+				continue
+			}
+			fields = append(fields, SettingField{
+				Key:   p.ID() + "." + secret.ID,
+				Type:  "secret",
+				Label: p.Label(),
+			})
+		}
 	}
-	b, err := json.Marshal(list)
-	if err != nil {
-		return encodeError("parse_error", err.Error())
-	}
-	return string(b)
+	return encodeEnvelope(status.OK, "", map[string]any{"fields": fields})
 }
 
 func parseCurrent(raw string) *eq.Receipt {
@@ -176,28 +165,13 @@ func parseCurrent(raw string) *eq.Receipt {
 	return &receipt
 }
 
-func encodeError(code, message string) string {
-	var out jsonError
-	out.Error.Code = code
-	out.Error.Message = message
-	b, _ := json.Marshal(out)
-	return string(b)
-}
-
 func receiptSummary(r *eq.Receipt) string {
 	if r == nil {
 		return "receipt=nil"
 	}
-	limited := false
-	noItems := false
-	if r.Extensions != nil {
-		if v, ok := r.Extensions["checkscan.rate_limited"].(bool); ok {
-			limited = v
-		}
-		if v, ok := r.Extensions["checkscan.items_unavailable"].(bool); ok {
-			noItems = v
-		}
-	}
-	return fmt.Sprintf("id=%s items=%d total=%g merchant=%q limited=%v no_items=%v",
-		r.ID, len(r.Items), r.GrandTotal, r.MerchantName, limited, noItems)
+	return fmt.Sprintf("id=%s items=%d total=%g merchant=%q limited=%v secret=%v unreachable=%v",
+		r.ID, len(r.Items), r.GrandTotal, r.MerchantName,
+		outcome.HasFlag(r, "checkscan.rate_limited"),
+		outcome.HasFlag(r, outcome.NeedsSecretKey),
+		outcome.HasFlag(r, outcome.UnavailableKey))
 }

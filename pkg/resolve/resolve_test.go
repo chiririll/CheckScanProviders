@@ -80,9 +80,11 @@ func TestUnknownFormat(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
 		t.Fatal(err)
 	}
-	errObj, _ := payload["error"].(map[string]any)
-	if errObj["code"] != "unknown_format" {
-		t.Fatalf("json error: %s", raw)
+	if payload["status"] != float64(415) {
+		t.Fatalf("json status: %s", raw)
+	}
+	if payload["data"] != nil {
+		t.Fatalf("data must be null: %s", raw)
 	}
 }
 
@@ -183,29 +185,39 @@ func TestHintForcesProvider(t *testing.T) {
 	}
 }
 
-func TestProvidersJSON(t *testing.T) {
-	type item struct {
-		ID      string `json:"id"`
-		Label   string `json:"label"`
-		Secrets []struct {
-			ID string `json:"id"`
-		} `json:"secrets"`
+func TestSettingsJSON(t *testing.T) {
+	var env struct {
+		Status int `json:"status"`
+		Data   struct {
+			Fields []resolve.SettingField `json:"fields"`
+		} `json:"data"`
 	}
-	var list []item
-	if err := json.Unmarshal([]byte(resolve.ProvidersJSON()), &list); err != nil {
+	if err := json.Unmarshal([]byte(resolve.SettingsJSON()), &env); err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 3 || list[0].ID != "eq_payload" || list[1].ID != "rs_purs" || list[2].ID != "ru_fns" {
-		t.Fatalf("%v", list)
+	if env.Status != 200 {
+		t.Fatalf("status %d", env.Status)
 	}
-	if list[0].Label != "EQ" || list[1].Label != "RS" || list[2].Label != "RU" {
-		t.Fatalf("labels: %v", list)
+	if len(env.Data.Fields) != 1 || env.Data.Fields[0].Key != "ru_fns.token" {
+		t.Fatalf("%v", env.Data.Fields)
 	}
-	if len(list[0].Secrets) != 0 || len(list[1].Secrets) != 0 {
-		t.Fatalf("unexpected secrets: %v", list)
+	if env.Data.Fields[0].Type != "secret" || env.Data.Fields[0].Label != "RU" {
+		t.Fatalf("%v", env.Data.Fields[0])
 	}
-	if len(list[2].Secrets) != 1 || list[2].Secrets[0].ID != "token" {
-		t.Fatalf("ru_fns secrets: %v", list[2].Secrets)
+}
+
+func TestResolveJSONEnvelopeIncomplete(t *testing.T) {
+	raw := resolve.ResolveJSON(context.Background(), read(t, "fns_query.txt"), "", "")
+	var env resolve.Envelope
+	if err := json.Unmarshal([]byte(raw), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Status != 206 {
+		t.Fatalf("status %d body %s", env.Status, raw)
+	}
+	data, _ := env.Data.(map[string]any)
+	if data["adapter_id"] != "ru_fns" {
+		t.Fatalf("data %v", env.Data)
 	}
 }
 
