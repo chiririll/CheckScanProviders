@@ -11,7 +11,7 @@ Overview and `go test ./...`: [README.md](README.md).
 | [pkg/resolve](pkg/resolve/resolve.go) | Public API: `Match` / `Resolve`, default registry |
 | [pkg/provider](pkg/provider/provider.go) | `Provider` interface |
 | [pkg/eq](pkg/eq/receipt.go) | Receipt JSON model |
-| [include/checkscan.h](include/checkscan.h) | C ABI (`checkscan_match` / `resolve` / `providers` / `set_log`) |
+| [include/checkscan.h](include/checkscan.h) | C ABI (`checkscan_match` / `resolve` / `providers` / `set_config` / `set_log`) |
 | [cmd/lib](cmd/lib/main.go) | c-shared exports |
 | [internal/nativelog](internal/nativelog/nativelog.go) | Library logs: stderr, or host `checkscan_set_log` |
 | [internal/](internal/) | One package per provider |
@@ -29,6 +29,7 @@ New formats live here, not in the Flutter app.
 1. New package under `internal/`, implement [provider.Provider](pkg/provider/provider.go).
 2. Register it in [`DefaultRegistry`](pkg/resolve/resolve.go).
 3. Cover match + parse with tests (use [testdata/](testdata/) when the QR is non-trivial).
+4. If the provider needs a host secret, implement `provider.HasSecrets` and read it via `nativecfg.Get(id + "." + secretID)`.
 
 Do not change the C ABI without updating the Flutter FFI in [flutter/](flutter/).
 
@@ -38,7 +39,7 @@ Do not change the C ABI without updating the Flutter FFI in [flutter/](flutter/)
 2. Tag `vX.Y.Z` and push. CI uploads `android-jniLibs.zip`.
 3. CheckScan's plugin `preBuild` fetches that asset when local `.so` files are missing.
 
-`ru_fns` token is a build ldflag (`PROVERKACHEKA_TOKEN` or `proverkacheka.token` in `local.properties`). The Release workflow reads the `PROVERKACHEKA_TOKEN` GitHub secret. Do not commit the token.
+Provider secrets stay out of the binary. A provider that needs a host value implements `provider.HasSecrets`. `checkscan_providers` lists `{id,label,secrets}`; the host stores values and calls `checkscan_set_config` with `{"<provider_id>.<secret_id>":"..."}`. Do not log secret values.
 
 ## Conventions
 

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
@@ -9,6 +10,7 @@ import 'native_log.dart';
 typedef _CStrFn = Pointer<Utf8> Function();
 typedef _CStr2Fn = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>);
 typedef _CStr4Fn = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>);
+typedef _CSetConfigFn = Void Function(Pointer<Utf8>);
 typedef _CFreeFn = Void Function(Pointer<Utf8>);
 
 class NativeProvidersLib {
@@ -16,10 +18,12 @@ class NativeProvidersLib {
       : _match = lib.lookupFunction<_CStr2Fn, _CStr2Fn>('checkscan_match'),
         _resolve = lib.lookupFunction<_CStr4Fn, _CStr4Fn>('checkscan_resolve'),
         _providers = lib.lookupFunction<_CStrFn, _CStrFn>('checkscan_providers'),
+        _setConfig = lib.lookupFunction<_CSetConfigFn, void Function(Pointer<Utf8>)>('checkscan_set_config'),
         _free = lib.lookupFunction<_CFreeFn, void Function(Pointer<Utf8>)>('checkscan_free');
   final _CStr2Fn _match;
   final _CStr4Fn _resolve;
   final _CStrFn _providers;
+  final void Function(Pointer<Utf8>) _setConfig;
   final void Function(Pointer<Utf8>) _free;
 
   static NativeProvidersLib open() {
@@ -27,6 +31,16 @@ class NativeProvidersLib {
       throw UnsupportedError('CheckScanProviders native library is Android-only in this build');
     }
     return NativeProvidersLib._(DynamicLibrary.open('libcheckscan.so'));
+  }
+
+  void setConfig(Map<String, String> config) {
+    final raw = jsonEncode(config);
+    final ptr = raw.toNativeUtf8();
+    try {
+      _setConfig(ptr);
+    } finally {
+      malloc.free(ptr);
+    }
   }
 
   String match(String rawQr, {String hint = ''}) => _call2(_match, rawQr, hint);
@@ -87,10 +101,15 @@ class NativeProvidersLib {
 }
 
 class IsolatedNativeProviders {
-  IsolatedNativeProviders();
+  IsolatedNativeProviders({Map<String, String> Function()? config}) : _config = config ?? _emptyConfig;
+
+  final Map<String, String> Function() _config;
+
+  static Map<String, String> _emptyConfig() => const {};
 
   Future<String> match(String rawQr, {String hint = ''}) {
-    return Isolate.run(() => _withLog((lib) => lib.match(rawQr, hint: hint)));
+    final config = Map<String, String>.from(_config());
+    return Isolate.run(() => _withLog(config, (lib) => lib.match(rawQr, hint: hint)));
   }
 
   Future<String> resolve(
@@ -100,17 +119,20 @@ class IsolatedNativeProviders {
     bool wait = false,
     String current = '',
   }) {
+    final config = Map<String, String>.from(_config());
     return Isolate.run(
-      () => _withLog((lib) => lib.resolve(rawQr, hint: hint, remote: remote, wait: wait, current: current)),
+      () => _withLog(config, (lib) => lib.resolve(rawQr, hint: hint, remote: remote, wait: wait, current: current)),
     );
   }
 
   Future<String> providers() {
-    return Isolate.run(() => _withLog((lib) => lib.providers()));
+    final config = Map<String, String>.from(_config());
+    return Isolate.run(() => _withLog(config, (lib) => lib.providers()));
   }
 
-  static T _withLog<T>(T Function(NativeProvidersLib lib) body) {
+  static T _withLog<T>(Map<String, String> config, T Function(NativeProvidersLib lib) body) {
     final lib = NativeProvidersLib.open();
+    lib.setConfig(config);
     final log = NativeHostLog.attach();
     try {
       return body(lib);

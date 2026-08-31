@@ -66,20 +66,6 @@ function Get-Clang([string]$Ndk, [string]$Triple) {
     return $clang
 }
 
-function Get-ProverkaToken {
-    if ($env:PROVERKACHEKA_TOKEN) {
-        return $env:PROVERKACHEKA_TOKEN.Trim()
-    }
-    foreach ($localProps in @(
-        (Join-Path $root "local.properties"),
-        (Join-Path $root "..\..\android\local.properties")
-    )) {
-        $token = Read-Prop $localProps "proverkacheka.token"
-        if ($token) { return $token }
-    }
-    return ""
-}
-
 $abiMap = @{
     "arm64-v8a" = @{ GoArch = "arm64"; Triple = "aarch64-linux-android24" }
     "x86_64"    = @{ GoArch = "amd64"; Triple = "x86_64-linux-android24" }
@@ -87,17 +73,6 @@ $abiMap = @{
 
 $ndk = Get-NdkRoot
 Write-Host "NDK: $ndk"
-
-$token = Get-ProverkaToken
-if ($token) {
-    Write-Host "proverkacheka token: set"
-} else {
-    Write-Host "proverkacheka token: missing (RU receipts stay without items)"
-}
-$ldflags = ""
-if ($token) {
-    $ldflags = "-X github.com/chiririll/CheckScanProviders/internal/rufns.APIToken=$token"
-}
 
 foreach ($abi in $Abis) {
     $meta = $abiMap[$abi]
@@ -114,11 +89,7 @@ foreach ($abi in $Abis) {
     $env:CGO_LDFLAGS = "-Wl,-soname,libcheckscan.so -llog"
     Push-Location $root
     try {
-        if ($ldflags) {
-            go build -ldflags $ldflags -buildmode=c-shared -o $outSo ./cmd/lib
-        } else {
-            go build -buildmode=c-shared -o $outSo ./cmd/lib
-        }
+        go build -buildmode=c-shared -o $outSo ./cmd/lib
         if ($LASTEXITCODE -ne 0) { throw "go build failed for $abi" }
     } finally {
         Pop-Location

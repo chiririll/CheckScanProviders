@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/nativecfg"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 	"github.com/chiririll/CheckScanProviders/pkg/resolve"
@@ -51,6 +52,11 @@ func checkscan_resolve(rawQR, hint, mode, current *C.char) *C.char {
 //export checkscan_providers
 func checkscan_providers() *C.char {
 	return cjson(resolve.ProvidersJSON())
+}
+
+//export checkscan_set_config
+func checkscan_set_config(raw *C.char) {
+	nativecfg.SetJSON(gostr(raw))
 }
 
 //export checkscan_free

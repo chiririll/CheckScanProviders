@@ -46,6 +46,15 @@ type Provider interface {
 	Parse(ctx context.Context, rawQR string) (*eq.Receipt, error)
 }
 
+// Secret is a host-supplied value. ID is opaque to the UI (e.g. "token").
+type Secret struct {
+	ID string `json:"id"`
+}
+
+type HasSecrets interface {
+	Secrets() []Secret
+}
+
 type Registry struct {
 	items []Provider
 }

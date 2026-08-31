@@ -22,4 +22,4 @@ Local rebuild (Go + Android NDK):
 ./scripts/build_android.ps1
 ```
 
-Needs Go 1.22+ and an NDK (`ANDROID_NDK_HOME` or `ndk.dir` in `local.properties`). Token: `PROVERKACHEKA_TOKEN`, or `proverkacheka.token` in `local.properties` (gitignored). The GitHub Release job uses the `PROVERKACHEKA_TOKEN` repo secret.
+Needs Go 1.22+ and an NDK (`ANDROID_NDK_HOME` or `ndk.dir` in `local.properties`). Provider secrets (tokens) are not baked into the `.so`: the host calls `checkscan_set_config` with values from `checkscan_providers` `secrets`.

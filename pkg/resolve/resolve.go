@@ -145,12 +145,17 @@ func ResolveJSON(ctx context.Context, rawQR, hint, currentJSON string) string {
 
 func ProvidersJSON() string {
 	type item struct {
-		ID    string `json:"id"`
-		Label string `json:"label"`
+		ID      string            `json:"id"`
+		Label   string            `json:"label"`
+		Secrets []provider.Secret `json:"secrets,omitempty"`
 	}
 	list := make([]item, 0)
 	for _, p := range DefaultRegistry().All() {
-		list = append(list, item{ID: p.ID(), Label: p.Label()})
+		entry := item{ID: p.ID(), Label: p.Label()}
+		if cfg, ok := p.(provider.HasSecrets); ok {
+			entry.Secrets = cfg.Secrets()
+		}
+		list = append(list, entry)
 	}
 	b, err := json.Marshal(list)
 	if err != nil {

@@ -89,21 +89,6 @@ find_clang() {
   exit 1
 }
 
-proverka_token() {
-  if [[ -n "${PROVERKACHEKA_TOKEN:-}" ]]; then
-    echo "$PROVERKACHEKA_TOKEN" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
-    return
-  fi
-  local prop token
-  for prop in "$ROOT/local.properties" "$ROOT/../../android/local.properties"; do
-    token="$(read_prop "$prop" "proverkacheka.token")"
-    if [[ -n "$token" ]]; then
-      echo "$token"
-      return
-    fi
-  done
-}
-
 go_arch_for() {
   case "$1" in
     arm64-v8a) echo arm64 ;;
@@ -123,18 +108,6 @@ triple_for() {
 NDK="$(find_ndk)"
 echo "NDK: $NDK"
 
-TOKEN="$(proverka_token || true)"
-if [[ -n "$TOKEN" ]]; then
-  echo "proverkacheka token: set"
-else
-  echo "proverkacheka token: missing (RU receipts stay without items)"
-fi
-
-LDFLAGS=""
-if [[ -n "$TOKEN" ]]; then
-  LDFLAGS="-X github.com/chiririll/CheckScanProviders/internal/rufns.APIToken=$TOKEN"
-fi
-
 for abi in "${ABIS[@]}"; do
   out_dir="$JNI_ROOT/$abi"
   mkdir -p "$out_dir"
@@ -148,11 +121,7 @@ for abi in "${ABIS[@]}"; do
     export CGO_ENABLED=1
     export CC="$clang"
     export CGO_LDFLAGS="-Wl,-soname,libcheckscan.so -llog"
-    if [[ -n "$LDFLAGS" ]]; then
-      go build -ldflags "$LDFLAGS" -buildmode=c-shared -o "$out_so" ./cmd/lib
-    else
-      go build -buildmode=c-shared -o "$out_so" ./cmd/lib
-    fi
+    go build -buildmode=c-shared -o "$out_so" ./cmd/lib
   )
   rm -f "${out_so%.so}.h"
   echo "Wrote $out_so"

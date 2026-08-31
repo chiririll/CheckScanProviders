@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/nativecfg"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
 )
 
@@ -24,6 +25,28 @@ func TestParseWithoutTokenStaysLocal(t *testing.T) {
 	}
 	if receipt.GrandTotal != 1247 {
 		t.Fatalf("total %v", receipt.GrandTotal)
+	}
+}
+
+func TestParseUsesHostConfigToken(t *testing.T) {
+	httplimit.ResetAll()
+	t.Cleanup(func() {
+		httplimit.ResetAll()
+		nativecfg.Reset()
+	})
+	nativecfg.SetJSON(`{"ru_fns.token":"from-host"}`)
+	called := false
+	p := Provider{
+		Fetch: func(context.Context, string) ([]byte, error) {
+			called = true
+			return []byte(`{"code":0,"data":{"json":{"user":"X","totalSum":1,"items":[]}}}`), nil
+		},
+	}
+	if _, err := p.Parse(provider.WithRemote(context.Background(), true), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1"); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("host config token must enable remote fetch")
 	}
 }
 

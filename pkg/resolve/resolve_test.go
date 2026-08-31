@@ -184,15 +184,28 @@ func TestHintForcesProvider(t *testing.T) {
 }
 
 func TestProvidersJSON(t *testing.T) {
-	var list []map[string]string
+	type item struct {
+		ID      string `json:"id"`
+		Label   string `json:"label"`
+		Secrets []struct {
+			ID string `json:"id"`
+		} `json:"secrets"`
+	}
+	var list []item
 	if err := json.Unmarshal([]byte(resolve.ProvidersJSON()), &list); err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 3 || list[0]["id"] != "eq_payload" || list[1]["id"] != "rs_purs" || list[2]["id"] != "ru_fns" {
+	if len(list) != 3 || list[0].ID != "eq_payload" || list[1].ID != "rs_purs" || list[2].ID != "ru_fns" {
 		t.Fatalf("%v", list)
 	}
-	if list[0]["label"] != "EQ" || list[1]["label"] != "RS" || list[2]["label"] != "RU" {
+	if list[0].Label != "EQ" || list[1].Label != "RS" || list[2].Label != "RU" {
 		t.Fatalf("labels: %v", list)
+	}
+	if len(list[0].Secrets) != 0 || len(list[1].Secrets) != 0 {
+		t.Fatalf("unexpected secrets: %v", list)
+	}
+	if len(list[2].Secrets) != 1 || list[2].Secrets[0].ID != "token" {
+		t.Fatalf("ru_fns secrets: %v", list[2].Secrets)
 	}
 }
 

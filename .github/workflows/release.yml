@@ -26,7 +26,6 @@ jobs:
       - name: Build Android libraries
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          PROVERKACHEKA_TOKEN: ${{ secrets.PROVERKACHEKA_TOKEN }}
         run: bash scripts/build_android.sh
       - name: Pack jniLibs
         run: |

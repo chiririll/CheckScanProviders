@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
+	"github.com/chiririll/CheckScanProviders/internal/nativecfg"
 	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/pkg/eq"
@@ -19,9 +20,6 @@ import (
 const ID = "ru_fns"
 
 var queryRE = regexp.MustCompile(`(?i)(?:^|[?&])([a-z]+)=([^&]*)`)
-
-// APIToken is injected at app build via -ldflags -X.
-var APIToken string
 
 type Fetcher func(ctx context.Context, qrraw string) ([]byte, error)
 
@@ -47,6 +45,10 @@ func New() provider.Provider {
 
 func (Provider) ID() string    { return ID }
 func (Provider) Label() string { return "RU" }
+
+func (Provider) Secrets() []provider.Secret {
+	return []provider.Secret{{ID: "token"}}
+}
 
 func (p Provider) CanHandle(rawQR string) (string, bool) {
 	f := parseFields(rawQR)
@@ -135,7 +137,7 @@ func (p Provider) token() string {
 	if p.Token != "" {
 		return p.Token
 	}
-	return strings.TrimSpace(APIToken)
+	return nativecfg.Get(ID + ".token")
 }
 
 func parseFields(rawQR string) *fields {
