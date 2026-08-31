@@ -30,10 +30,12 @@ android {
     }
 }
 
-def githubRepo = "chiririll/CheckScanProviders"
-def nativeAsset = "android-jniLibs.zip"
-def jniDir = file("src/main/jniLibs")
-def stampFile = file("${jniDir}/.native_version")
+ext {
+    githubRepo = "chiririll/CheckScanProviders"
+    nativeAsset = "android-jniLibs.zip"
+    jniDir = file("src/main/jniLibs")
+    stampFile = file("src/main/jniLibs/.native_version")
+}
 
 def nativeVersion() {
     def pubspec = file("../pubspec.yaml")
@@ -49,7 +51,7 @@ def releaseTag(String version) {
 }
 
 def hasNativeLibs() {
-    return !fileTree(jniDir).include("**/libcheckscan.so").isEmpty()
+    return !fileTree(ext.jniDir).include("**/libcheckscan.so").isEmpty()
 }
 
 tasks.register("fetchNativeLibs") {
