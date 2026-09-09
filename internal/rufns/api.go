@@ -28,7 +28,7 @@ const (
 type apiResponse struct {
 	Code int `json:"code"`
 	Data struct {
-		JSON *ticket `json:"json"`
+		JSON json.RawMessage `json:"json"`
 	} `json:"data"`
 }
 
@@ -96,18 +96,27 @@ func defaultFetch(ctx context.Context, token, qrraw string) ([]byte, error) {
 	return body, nil
 }
 
-func parseTicket(body []byte) (*ticket, error) {
+func parseTicket(body []byte) (*ticket, map[string]any, error) {
 	var resp apiResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if resp.Code != 1 || resp.Data.JSON == nil {
-		return nil, errors.New("check_unavailable")
+	if resp.Code != 1 || len(resp.Data.JSON) == 0 || string(resp.Data.JSON) == "null" {
+		return nil, nil, errors.New("check_unavailable")
 	}
-	return resp.Data.JSON, nil
+	var t ticket
+	if err := json.Unmarshal(resp.Data.JSON, &t); err != nil {
+		return nil, nil, err
+	}
+	var extra map[string]any
+	if err := json.Unmarshal(resp.Data.JSON, &extra); err != nil {
+		return nil, nil, err
+	}
+	delete(extra, "items")
+	return &t, extra, nil
 }
 
-func applyTicket(receipt *eq.Receipt, t *ticket) {
+func applyTicket(receipt *eq.Receipt, t *ticket, extra map[string]any) {
 	if name := strings.TrimSpace(t.RetailPlace); name != "" {
 		receipt.MerchantName = name
 	} else if name := strings.TrimSpace(t.User); name != "" {
@@ -140,6 +149,12 @@ func applyTicket(receipt *eq.Receipt, t *ticket) {
 	}
 	if len(items) > 0 {
 		receipt.Items = items
+	}
+	if extra != nil {
+		if receipt.Extensions == nil {
+			receipt.Extensions = map[string]any{}
+		}
+		receipt.Extensions["ru_fns"] = extra
 	}
 }
 

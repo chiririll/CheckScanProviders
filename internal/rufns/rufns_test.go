@@ -37,6 +37,9 @@ func TestParseWithoutTokenStaysLocal(t *testing.T) {
 	if receipt.GrandTotal != 1247 {
 		t.Fatalf("total %v", receipt.GrandTotal)
 	}
+	if _, ok := receipt.Extensions["ru_fns"]; ok {
+		t.Fatalf("local stub must not dump qr fields: %#v", receipt.Extensions)
+	}
 }
 
 func TestParseUsesHostConfigToken(t *testing.T) {
@@ -113,6 +116,16 @@ func TestParseUsesAPITicket(t *testing.T) {
 	if receipt.Items[1].Quantity != 2 || receipt.Items[1].UnitPrice != 54.99 || receipt.Items[1].TotalPrice != 109.98 {
 		t.Fatalf("item %#v", receipt.Items[1])
 	}
+	ru, _ := receipt.Extensions["ru_fns"].(map[string]any)
+	if ru["userInn"] != "2310031475" || ru["totalSum"] != float64(34993) {
+		t.Fatalf("ru_fns %#v", ru)
+	}
+	if _, ok := ru["items"]; ok {
+		t.Fatal("line items must stay out of extensions")
+	}
+	if ru["fn"] != nil || ru["fp"] != nil {
+		t.Fatalf("qr fields must not stay in ru_fns: %#v", ru)
+	}
 }
 
 func TestParse429BlocksNextFetch(t *testing.T) {
@@ -151,6 +164,9 @@ func TestParseAPIFailureKeepsQRTotal(t *testing.T) {
 	}
 	if len(receipt.Items) != 0 || receipt.GrandTotal != 1247 {
 		t.Fatalf("fallback %#v", receipt)
+	}
+	if _, ok := receipt.Extensions["ru_fns"]; ok {
+		t.Fatalf("failed fetch must not dump qr fields: %#v", receipt.Extensions)
 	}
 }
 

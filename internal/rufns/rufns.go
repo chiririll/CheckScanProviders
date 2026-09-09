@@ -88,12 +88,12 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 		return receipt, nil
 	}
 	nativelog.Info("%s rufns fetch ok bytes=%d", nativelog.Call(ctx), len(body))
-	ticket, err := parseTicket(body)
+	ticket, extra, err := parseTicket(body)
 	if err != nil {
 		nativelog.Warn("%s rufns ticket: %v body=%s", nativelog.Call(ctx), err, nativelog.Preview(string(body), 160))
 		return receipt, nil
 	}
-	applyTicket(receipt, ticket)
+	applyTicket(receipt, ticket, extra)
 	if len(receipt.Items) == 0 {
 		outcome.MarkNoItems(receipt)
 	}
@@ -115,16 +115,6 @@ func receiptFromFields(rawQR string, f *fields) *eq.Receipt {
 	if f.sum != nil {
 		total = *f.sum
 	}
-	ru := map[string]any{
-		"fn": f.fn,
-		"i":  f.fd,
-		"fp": f.fp,
-		"t":  f.t,
-		"n":  f.n,
-	}
-	if f.sum != nil {
-		ru["s"] = *f.sum
-	}
 	return &eq.Receipt{
 		ID:          "ru-" + f.fn + "-" + f.fd + "-" + f.fp,
 		IssuedAt:    issued,
@@ -134,7 +124,6 @@ func receiptFromFields(rawQR string, f *fields) *eq.Receipt {
 		GrandTotal:  total,
 		Extensions: map[string]any{
 			"checkscan.qr_raw": rawQR,
-			"ru_fns":           ru,
 		},
 	}
 }
