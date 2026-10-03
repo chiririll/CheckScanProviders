@@ -1,4 +1,4 @@
-// Package money converts amounts to integer minor units (kopecks, para) without floats.
+// Package money converts decimal amounts to scaled integers (minor units) without floats.
 package money
 
 import (
@@ -10,26 +10,7 @@ import (
 // ErrInvalid reports a string that is not a plain decimal number.
 var ErrInvalid = errors.New("invalid_amount")
 
-// minorDigits is the ISO 4217 exponent for currencies whose exponent is not 2.
-var minorDigits = map[string]int{
-	"JPY": 0,
-	"KRW": 0,
-	"VND": 0,
-	"BHD": 3,
-	"KWD": 3,
-	"OMR": 3,
-	"TND": 3,
-}
-
-// Exponent is how many decimal digits the currency's minor unit has (RUB, RSD: 2).
-func Exponent(currency string) int {
-	if digits, ok := minorDigits[strings.ToUpper(currency)]; ok {
-		return digits
-	}
-	return 2
-}
-
-// ParseDecimal reads "1247.5", "-3", "1247,50" into minor units with exp fraction
+// ParseDecimal reads "1247.5", "-3", "1247,50" into an integer with exp fraction
 // digits. Digits beyond exp are rounded half away from zero, in integer arithmetic.
 func ParseDecimal(raw string, exp int) (int64, error) {
 	s := strings.TrimSpace(raw)

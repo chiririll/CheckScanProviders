@@ -38,7 +38,7 @@ func decodeVL(vl string) (*vlPayload, error) {
 		return nil, errors.New("invalid_vl")
 	}
 	// The VL stores the total in 1/10000 dinar.
-	amount := money.Rescale(int64(binary.LittleEndian.Uint64(raw[25:33])), 4, money.Exponent(currency))
+	amount := money.Rescale(int64(binary.LittleEndian.Uint64(raw[25:33])), 4, scale)
 	ms := binary.BigEndian.Uint64(raw[33:41])
 	return &vlPayload{
 		RequestedBy:     ascii8(raw[1:9]),
@@ -70,6 +70,7 @@ func receiptFromVL(rawQR, vl string) (*receipt.Receipt, error) {
 		ID:       "rs-" + number,
 		IssuedAt: issued,
 		Currency: currency,
+		Scale:    scale,
 		Type:     receiptType,
 		Items:    []receipt.Item{},
 		Total:    p.TotalAmount,

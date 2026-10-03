@@ -16,7 +16,7 @@ func TestParseConvertsEQToMinorUnitsExactly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Total != 124710 || got.Items[0].Price != 59999 || got.Items[0].Sum != 31379 {
+	if got.Scale != 2 || got.Total != 124710 || got.Items[0].Price != 59999 || got.Items[0].Sum != 31379 {
 		t.Fatalf("amounts %+v", got)
 	}
 	if got.Items[0].Name != "Сыр" || got.Items[0].Quantity != 0.523 || got.MerchantName != "Пятёрочка" || got.TaxID != "7707" {
@@ -39,5 +39,16 @@ func TestParseAcceptsLegacyTotalFields(t *testing.T) {
 	}
 	if got.Total != 9950 || got.Currency != "RSD" {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestParseUsesTheCurrencyScaleForEQ(t *testing.T) {
+	raw := `{"receipt":{"id":"jp","currency":"JPY","totals":{"grand_total":1500},"items":[]}}`
+	got, err := New().Parse(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Scale != 0 || got.Total != 1500 {
+		t.Fatalf("got scale %d total %d", got.Scale, got.Total)
 	}
 }

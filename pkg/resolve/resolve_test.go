@@ -99,8 +99,8 @@ func TestResolveFNSIncomplete(t *testing.T) {
 	if result.Receipt.Total != 124700 {
 		t.Fatalf("total %v", result.Receipt.Total)
 	}
-	if result.Receipt.Currency != "RUB" {
-		t.Fatalf("currency %s", result.Receipt.Currency)
+	if result.Receipt.Currency != "RUB" || result.Receipt.Scale != 2 {
+		t.Fatalf("currency %s scale %d", result.Receipt.Currency, result.Receipt.Scale)
 	}
 }
 

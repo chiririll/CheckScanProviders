@@ -90,7 +90,7 @@ func journalDecimal(raw string) string {
 
 // parsePara reads a journal amount into para (1/100 dinar).
 func parsePara(raw string) int64 {
-	n, err := money.ParseDecimal(journalDecimal(raw), money.Exponent(currency))
+	n, err := money.ParseDecimal(journalDecimal(raw), scale)
 	if err != nil {
 		return 0
 	}

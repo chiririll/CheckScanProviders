@@ -77,6 +77,9 @@ func TestParseLocalFromVL(t *testing.T) {
 	if receipt.ID != "rs-U56ZV6W7-U56ZV6W7-104836" {
 		t.Fatalf("id %s", receipt.ID)
 	}
+	if receipt.Scale != 2 {
+		t.Fatalf("scale %d", receipt.Scale)
+	}
 	if receipt.Total != 8999 {
 		t.Fatalf("total %v", receipt.Total)
 	}

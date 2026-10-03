@@ -121,7 +121,7 @@ func parseTicket(body []byte) (*ticket, map[string]any, error) {
 	return &t, extra, nil
 }
 
-// applyTicket fills r from the FNS ticket. FNS amounts are integer kopecks.
+// applyTicket fills r from the FNS ticket. FNS amounts are integer kopecks (scale 2).
 func applyTicket(r *receipt.Receipt, t *ticket, extra map[string]any) {
 	if name := strings.TrimSpace(t.RetailPlace); name != "" {
 		r.MerchantName = name

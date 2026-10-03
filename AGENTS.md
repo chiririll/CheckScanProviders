@@ -11,7 +11,7 @@ Overview and `go test ./...`: [README.md](README.md).
 | [pkg/resolve](pkg/resolve/resolve.go) | Public API: `Match` / `Resolve`, default registry |
 | [pkg/provider](pkg/provider/provider.go) | `Provider` interface |
 | [pkg/receipt](pkg/receipt/receipt.go) | Receipt JSON model (`format: checkscan.receipt`, `version: 1`) |
-| [pkg/money](pkg/money/money.go) | Amounts as integer minor units: exact decimal parsing, currency exponent |
+| [pkg/money](pkg/money/money.go) | Exact decimal → scaled integer parsing and rescaling, no floats |
 | [adapters/c/include/checkscan.h](adapters/c/include/checkscan.h) | C adapter: ABI (`checkscan_match` / `resolve` / `settings` / `set_config` / `set_log`) |
 | [cmd/lib](cmd/lib/main.go) | c-shared implementation of the C adapter |
 | [internal/nativelog](internal/nativelog/nativelog.go) | Library logs: stderr, or host `checkscan_set_log` |
@@ -27,7 +27,7 @@ New formats live here, not in the Flutter app.
 
 ## Receipt JSON
 
-`{format, version, id, issued_at, currency, type, merchant{name, tax_id}, total, items[{name, quantity, price, sum}], extensions}`. `total`, `price` and `sum` are integers in the currency's minor units (`money.Exponent`: 2 for RUB/RSD). `quantity` may be fractional. Never put money through `float64`: parse provider amounts with `money.ParseDecimal` (or `json.Number`). eQ 1.0 is an input format only (`internal/eqpayload`), converted on parse.
+`{format, version, id, issued_at, currency, scale, type, merchant{name, tax_id}, total, items[{name, quantity, price, sum}], extensions}`. `total`, `price` and `sum` are integers counting 10^-`scale` currency units. The provider sets `scale` (it knows its source: FNS and PURS use 2); readers never derive it from the currency, and a receipt without `scale` is rejected. `quantity` may be fractional. Never put money through `float64`: parse provider amounts with `money.ParseDecimal` (or `json.Number`). eQ 1.0 is an input format only (`internal/eqpayload`), converted on parse; eQ has no scale, so that provider alone keeps an ISO 4217 table.
 
 ## Add a provider
 

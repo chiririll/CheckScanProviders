@@ -46,9 +46,3 @@ func TestRescale(t *testing.T) {
 		t.Errorf("0→2 = %d", got)
 	}
 }
-
-func TestExponent(t *testing.T) {
-	if Exponent("RUB") != 2 || Exponent("rsd") != 2 || Exponent("JPY") != 0 {
-		t.Fatal("unexpected exponent")
-	}
-}

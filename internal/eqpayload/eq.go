@@ -3,6 +3,7 @@ package eqpayload
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/pkg/money"
@@ -10,6 +11,26 @@ import (
 )
 
 // eQ 1.0 is accepted only as QR input and converted at once.
+
+// isoScale holds ISO 4217 minor-unit digits that differ from 2. eQ carries a
+// currency but no scale, so this provider has to look it up.
+var isoScale = map[string]int{
+	"JPY": 0,
+	"KRW": 0,
+	"VND": 0,
+	"BHD": 3,
+	"KWD": 3,
+	"OMR": 3,
+	"TND": 3,
+}
+
+func scaleOf(currency string) int {
+	if digits, ok := isoScale[strings.ToUpper(currency)]; ok {
+		return digits
+	}
+	return 2
+}
+
 type eqEnvelope struct {
 	EqVersion string          `json:"eq_version"`
 	Receipt   json.RawMessage `json:"receipt"`
@@ -64,7 +85,7 @@ func decodeEQ(data []byte) (*receipt.Receipt, error) {
 	if currency == "" {
 		currency = "RUB"
 	}
-	exp := money.Exponent(currency)
+	exp := scaleOf(currency)
 	issued := time.Now()
 	if t, err := time.Parse(time.RFC3339, wr.IssuedAt); err == nil {
 		issued = t
@@ -90,6 +111,7 @@ func decodeEQ(data []byte) (*receipt.Receipt, error) {
 		ID:           wr.ID,
 		IssuedAt:     issued,
 		Currency:     currency,
+		Scale:        exp,
 		Type:         wr.ReceiptType,
 		MerchantName: wr.Merchant.Name,
 		TaxID:        wr.Merchant.TaxID,

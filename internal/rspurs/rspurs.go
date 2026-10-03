@@ -24,8 +24,11 @@ import (
 
 const ID = "rs_purs"
 
-// currency of every PURS receipt.
-const currency = "RSD"
+// Every PURS receipt is in dinars, counted in para.
+const (
+	currency = "RSD"
+	scale    = 2
+)
 
 const (
 	hostSUF     = "suf.purs.gov.rs"
@@ -198,6 +201,7 @@ func receiptFromJSON(rawQR string, body []byte) (*receipt.Receipt, error) {
 		ID:           "rs-" + inv.InvoiceResult.InvoiceNumber,
 		IssuedAt:     issued,
 		Currency:     currency,
+		Scale:        scale,
 		Type:         receiptType,
 		MerchantName: strings.TrimSpace(inv.InvoiceRequest.BusinessName),
 		TaxID:        inv.InvoiceRequest.TaxID,
@@ -296,7 +300,7 @@ func amountPara(n json.Number) int64 {
 	if n == "" {
 		return 0
 	}
-	value, err := money.ParseDecimal(n.String(), money.Exponent(currency))
+	value, err := money.ParseDecimal(n.String(), scale)
 	if err != nil {
 		return 0
 	}

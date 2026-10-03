@@ -20,6 +20,12 @@ import (
 
 const ID = "ru_fns"
 
+// FNS receipts are in rubles; the API and the QR total count kopecks.
+const (
+	currency = "RUB"
+	scale    = 2
+)
+
 var queryRE = regexp.MustCompile(`(?i)(?:^|[?&])([a-z]+)=([^&]*)`)
 
 type Fetcher func(ctx context.Context, qrraw string) ([]byte, error)
@@ -120,7 +126,8 @@ func receiptFromFields(rawQR string, f *fields) *receipt.Receipt {
 	return &receipt.Receipt{
 		ID:       "ru-" + f.fn + "-" + f.fd + "-" + f.fp,
 		IssuedAt: issued,
-		Currency: "RUB",
+		Currency: currency,
+		Scale:    scale,
 		Type:     receiptType,
 		Items:    []receipt.Item{},
 		Total:    total,
@@ -153,7 +160,7 @@ func parseFields(rawQR string) *fields {
 	}
 	var sum *int64
 	if raw, ok := values["s"]; ok && raw != "" {
-		if n, err := money.ParseDecimal(raw, 2); err == nil {
+		if n, err := money.ParseDecimal(raw, scale); err == nil {
 			sum = &n
 		}
 	}

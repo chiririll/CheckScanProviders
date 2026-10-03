@@ -1,7 +1,8 @@
 // Package receipt is the CheckScan receipt JSON: the only shape the library returns.
 //
-// Money is an integer count of the currency's minor units (kopecks, para); see
-// [money.Exponent]. Quantities stay fractional (0.523 kg).
+// Money is an integer count of 10^-Scale currency units: Scale 2 means kopecks
+// or para. The provider that builds the receipt sets Scale; readers never guess
+// it from the currency. Quantities stay fractional (0.523 kg).
 package receipt
 
 import (
@@ -28,9 +29,11 @@ type Item struct {
 }
 
 type Receipt struct {
-	ID           string
-	IssuedAt     time.Time
-	Currency     string
+	ID       string
+	IssuedAt time.Time
+	Currency string
+	// Scale is how many decimal digits Total, Price and Sum carry.
+	Scale        int
 	Type         string
 	MerchantName string
 	TaxID        string
@@ -46,6 +49,7 @@ type wireReceipt struct {
 	ID         string         `json:"id"`
 	IssuedAt   string         `json:"issued_at"`
 	Currency   string         `json:"currency"`
+	Scale      *int           `json:"scale"`
 	Type       string         `json:"type"`
 	Merchant   wireMerchant   `json:"merchant"`
 	Total      int64          `json:"total"`
@@ -77,6 +81,7 @@ func (r Receipt) MarshalJSON() ([]byte, error) {
 		ID:         r.ID,
 		IssuedAt:   issued.UTC().Format(time.RFC3339),
 		Currency:   defaultString(r.Currency, "RUB"),
+		Scale:      &r.Scale,
 		Type:       defaultString(r.Type, "sale"),
 		Merchant:   wireMerchant{Name: r.MerchantName, TaxID: r.TaxID},
 		Total:      r.Total,
@@ -90,7 +95,7 @@ func (r *Receipt) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &wr); err != nil {
 		return err
 	}
-	if wr.Format != Format {
+	if wr.Format != Format || wr.Scale == nil {
 		return ErrFormat
 	}
 	issued, err := time.Parse(time.RFC3339, wr.IssuedAt)
@@ -109,6 +114,7 @@ func (r *Receipt) UnmarshalJSON(data []byte) error {
 		ID:           wr.ID,
 		IssuedAt:     issued,
 		Currency:     defaultString(wr.Currency, "RUB"),
+		Scale:        *wr.Scale,
 		Type:         defaultString(wr.Type, "sale"),
 		MerchantName: wr.Merchant.Name,
 		TaxID:        wr.Merchant.TaxID,
