@@ -3,15 +3,15 @@ package outcome
 import (
 	"testing"
 
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 func TestIsRicher(t *testing.T) {
-	empty := &eq.Receipt{GrandTotal: 1749}
-	withItems := &eq.Receipt{
-		GrandTotal:   1749,
+	empty := &receipt.Receipt{Total: 174900}
+	withItems := &receipt.Receipt{
+		Total:        174900,
 		MerchantName: "Shop",
-		Items:        []eq.Item{{Description: "Voda", Quantity: 1, UnitPrice: 1749, TotalPrice: 1749}},
+		Items:        []receipt.Item{{Name: "Voda", Quantity: 1, Price: 174900, Sum: 174900}},
 	}
 	if !IsRicher(withItems, empty) {
 		t.Fatal("items must win")

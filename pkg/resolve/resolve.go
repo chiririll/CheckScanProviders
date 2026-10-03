@@ -12,8 +12,8 @@ import (
 	"github.com/chiririll/CheckScanProviders/internal/outcome"
 	"github.com/chiririll/CheckScanProviders/internal/rspurs"
 	"github.com/chiririll/CheckScanProviders/internal/rufns"
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 	"github.com/chiririll/CheckScanProviders/pkg/status"
 )
 
@@ -29,11 +29,10 @@ type Match struct {
 }
 
 type Result struct {
-	AdapterID string      `json:"adapter_id"`
-	Hash      string      `json:"hash"`
-	Label     string      `json:"label"`
-	EqVersion string      `json:"eq_version"`
-	Receipt   *eq.Receipt `json:"receipt"`
+	AdapterID string           `json:"adapter_id"`
+	Hash      string           `json:"hash"`
+	Label     string           `json:"label"`
+	Receipt   *receipt.Receipt `json:"receipt"`
 }
 
 type SettingField struct {
@@ -70,7 +69,7 @@ func MatchQR(rawQR, hint string, registry *provider.Registry) (Match, error) {
 	return Match{}, ErrUnknownFormat
 }
 
-func Resolve(ctx context.Context, rawQR, hint string, registry *provider.Registry, current *eq.Receipt) (Result, error) {
+func Resolve(ctx context.Context, rawQR, hint string, registry *provider.Registry, current *receipt.Receipt) (Result, error) {
 	if registry == nil {
 		registry = DefaultRegistry()
 	}
@@ -94,7 +93,6 @@ func Resolve(ctx context.Context, rawQR, hint string, registry *provider.Registr
 		AdapterID: match.AdapterID,
 		Hash:      match.Hash,
 		Label:     match.Label,
-		EqVersion: eq.Version,
 		Receipt:   receipt,
 	}, nil
 }
@@ -153,24 +151,24 @@ func SettingsJSON() string {
 	return encodeEnvelope(status.OK, "", map[string]any{"fields": fields})
 }
 
-func parseCurrent(raw string) *eq.Receipt {
+func parseCurrent(raw string) *receipt.Receipt {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil
 	}
-	var receipt eq.Receipt
+	var receipt receipt.Receipt
 	if err := json.Unmarshal([]byte(raw), &receipt); err != nil {
 		return nil
 	}
 	return &receipt
 }
 
-func receiptSummary(r *eq.Receipt) string {
+func receiptSummary(r *receipt.Receipt) string {
 	if r == nil {
 		return "receipt=nil"
 	}
-	return fmt.Sprintf("id=%s items=%d total=%g merchant=%q limited=%v secret=%v unreachable=%v",
-		r.ID, len(r.Items), r.GrandTotal, r.MerchantName,
+	return fmt.Sprintf("id=%s items=%d total=%d merchant=%q limited=%v secret=%v unreachable=%v",
+		r.ID, len(r.Items), r.Total, r.MerchantName,
 		outcome.HasFlag(r, "checkscan.rate_limited"),
 		outcome.HasFlag(r, outcome.NeedsSecretKey),
 		outcome.HasFlag(r, outcome.UnavailableKey))

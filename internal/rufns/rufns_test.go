@@ -2,6 +2,7 @@ package rufns
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -34,8 +35,8 @@ func TestParseWithoutTokenStaysLocal(t *testing.T) {
 	if len(receipt.Items) != 0 {
 		t.Fatal("expected no items without token")
 	}
-	if receipt.GrandTotal != 1247 {
-		t.Fatalf("total %v", receipt.GrandTotal)
+	if receipt.Total != 124700 {
+		t.Fatalf("total %v", receipt.Total)
 	}
 	if _, ok := receipt.Extensions["ru_fns"]; ok {
 		t.Fatalf("local stub must not dump qr fields: %#v", receipt.Extensions)
@@ -74,8 +75,8 @@ func TestParseSkipsAPIUnlessRemote(t *testing.T) {
 		},
 	}
 	receipt, err := p.Parse(context.Background(), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
-	if err != nil || called || receipt.GrandTotal != 1247 {
-		t.Fatalf("local scan must skip API: err=%v called=%v total=%v", err, called, receipt.GrandTotal)
+	if err != nil || called || receipt.Total != 124700 {
+		t.Fatalf("local scan must skip API: err=%v called=%v total=%v", err, called, receipt.Total)
 	}
 }
 
@@ -104,8 +105,8 @@ func TestParseUsesAPITicket(t *testing.T) {
 	if receipt.TaxID != "2310031475" {
 		t.Fatalf("inn %s", receipt.TaxID)
 	}
-	if receipt.GrandTotal != 349.93 {
-		t.Fatalf("total %v", receipt.GrandTotal)
+	if receipt.Total != 34993 {
+		t.Fatalf("total %v", receipt.Total)
 	}
 	if !receipt.IssuedAt.Equal(time.Date(2020, 9, 24, 18, 37, 0, 0, time.UTC)) {
 		t.Fatalf("issued %v", receipt.IssuedAt)
@@ -113,11 +114,11 @@ func TestParseUsesAPITicket(t *testing.T) {
 	if len(receipt.Items) != 2 {
 		t.Fatalf("items %d", len(receipt.Items))
 	}
-	if receipt.Items[1].Quantity != 2 || receipt.Items[1].UnitPrice != 54.99 || receipt.Items[1].TotalPrice != 109.98 {
+	if receipt.Items[1].Quantity != 2 || receipt.Items[1].Price != 5499 || receipt.Items[1].Sum != 10998 {
 		t.Fatalf("item %#v", receipt.Items[1])
 	}
 	ru, _ := receipt.Extensions["ru_fns"].(map[string]any)
-	if ru["userInn"] != "2310031475" || ru["totalSum"] != float64(34993) {
+	if ru["userInn"] != "2310031475" || ru["totalSum"] != json.Number("34993") {
 		t.Fatalf("ru_fns %#v", ru)
 	}
 	if _, ok := ru["items"]; ok {
@@ -140,7 +141,7 @@ func TestParse429BlocksNextFetch(t *testing.T) {
 		},
 	}
 	first, err := p.Parse(provider.WithRemote(context.Background(), true), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
-	if err != nil || first.GrandTotal != 1247 || first.Extensions[httplimit.ExtensionKey] != true {
+	if err != nil || first.Total != 124700 || first.Extensions[httplimit.ExtensionKey] != true {
 		t.Fatalf("first %#v %v", first, err)
 	}
 	_, err = p.Parse(provider.WithRemote(context.Background(), true), "t=20260828T1842&s=1247.00&fn=8710000100905518&i=12&fp=4135164163&n=1")
@@ -162,7 +163,7 @@ func TestParseAPIFailureKeepsQRTotal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(receipt.Items) != 0 || receipt.GrandTotal != 1247 {
+	if len(receipt.Items) != 0 || receipt.Total != 124700 {
 		t.Fatalf("fallback %#v", receipt)
 	}
 	if _, ok := receipt.Extensions["ru_fns"]; ok {

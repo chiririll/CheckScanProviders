@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 type remoteKey struct{}
@@ -43,7 +43,7 @@ type Provider interface {
 	ID() string
 	Label() string
 	CanHandle(rawQR string) (hash string, ok bool)
-	Parse(ctx context.Context, rawQR string) (*eq.Receipt, error)
+	Parse(ctx context.Context, rawQR string) (*receipt.Receipt, error)
 }
 
 // Secret is a host-supplied value. ID is opaque to the UI (e.g. "token").

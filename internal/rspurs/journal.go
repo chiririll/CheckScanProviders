@@ -6,7 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/money"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 var (
@@ -15,16 +16,16 @@ var (
 	sepLineRE   = regexp.MustCompile(`^[=\-]{8,}\s*$`)
 )
 
-func parseJournalItems(journal string) []eq.Item {
+func parseJournalItems(journal string) []receipt.Item {
 	if journal == "" {
-		return []eq.Item{}
+		return []receipt.Item{}
 	}
 	lines := splitJournalLines(journal)
 	start := itemSectionStart(lines)
 	if start < 0 {
-		return []eq.Item{}
+		return []receipt.Item{}
 	}
-	var items []eq.Item
+	var items []receipt.Item
 	var nameParts []string
 	for _, line := range lines[start:] {
 		trimmed := strings.TrimSpace(line)
@@ -42,18 +43,18 @@ func parseJournalItems(journal string) []eq.Item {
 			if name == "" {
 				continue
 			}
-			items = append(items, eq.Item{
-				Description: name,
-				UnitPrice:   parseDecimal(m[1]),
-				Quantity:    parseDecimal(m[2]),
-				TotalPrice:  parseDecimal(m[3]),
+			items = append(items, receipt.Item{
+				Name:     name,
+				Price:    parsePara(m[1]),
+				Quantity: parseQuantity(m[2]),
+				Sum:      parsePara(m[3]),
 			})
 			continue
 		}
 		nameParts = append(nameParts, strings.TrimRightFunc(line, unicode.IsSpace))
 	}
 	if items == nil {
-		return []eq.Item{}
+		return []receipt.Item{}
 	}
 	return items
 }
@@ -77,13 +78,27 @@ func splitJournalLines(journal string) []string {
 	return strings.Split(normalized, "\n")
 }
 
-func parseDecimal(raw string) float64 {
+// journalDecimal normalizes "1.234,56" (dot thousands, comma decimals) to "1234.56".
+func journalDecimal(raw string) string {
 	s := strings.TrimSpace(raw)
 	if strings.Contains(s, ",") {
 		s = strings.ReplaceAll(s, ".", "")
 		s = strings.ReplaceAll(s, ",", ".")
 	}
-	n, err := strconv.ParseFloat(s, 64)
+	return s
+}
+
+// parsePara reads a journal amount into para (1/100 dinar).
+func parsePara(raw string) int64 {
+	n, err := money.ParseDecimal(journalDecimal(raw), money.Exponent(currency))
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+func parseQuantity(raw string) float64 {
+	n, err := strconv.ParseFloat(journalDecimal(raw), 64)
 	if err != nil {
 		return 0
 	}

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 const (
@@ -183,7 +183,7 @@ func IsLimit(err error) bool {
 	return false
 }
 
-func Mark(receipt *eq.Receipt) {
+func Mark(receipt *receipt.Receipt) {
 	if receipt == nil {
 		return
 	}

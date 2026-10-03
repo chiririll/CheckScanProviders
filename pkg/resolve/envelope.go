@@ -6,7 +6,7 @@ import (
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
 	"github.com/chiririll/CheckScanProviders/internal/outcome"
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 	"github.com/chiririll/CheckScanProviders/pkg/status"
 )
 
@@ -16,7 +16,7 @@ type Envelope struct {
 	Data    any    `json:"data"`
 }
 
-func Classify(receipt *eq.Receipt, err error) (int, string) {
+func Classify(receipt *receipt.Receipt, err error) (int, string) {
 	if err != nil && receipt == nil {
 		if errors.Is(err, ErrUnknownFormat) {
 			return status.UnknownFormat, err.Error()

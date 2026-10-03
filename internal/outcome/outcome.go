@@ -1,6 +1,6 @@
 package outcome
 
-import "github.com/chiririll/CheckScanProviders/pkg/eq"
+import "github.com/chiririll/CheckScanProviders/pkg/receipt"
 
 const (
 	ItemsUnavailableKey = "checkscan.items_unavailable"
@@ -8,19 +8,19 @@ const (
 	UnavailableKey      = "checkscan.api_unreachable"
 )
 
-func MarkNoItems(receipt *eq.Receipt) {
+func MarkNoItems(receipt *receipt.Receipt) {
 	markFlag(receipt, ItemsUnavailableKey, receipt != nil && len(receipt.Items) == 0)
 }
 
-func MarkNeedsSecret(receipt *eq.Receipt) {
+func MarkNeedsSecret(receipt *receipt.Receipt) {
 	markFlag(receipt, NeedsSecretKey, true)
 }
 
-func MarkUnavailable(receipt *eq.Receipt) {
+func MarkUnavailable(receipt *receipt.Receipt) {
 	markFlag(receipt, UnavailableKey, true)
 }
 
-func HasFlag(receipt *eq.Receipt, key string) bool {
+func HasFlag(receipt *receipt.Receipt, key string) bool {
 	if receipt == nil || receipt.Extensions == nil {
 		return false
 	}
@@ -28,7 +28,7 @@ func HasFlag(receipt *eq.Receipt, key string) bool {
 	return value == true || value == "true"
 }
 
-func markFlag(receipt *eq.Receipt, key string, ok bool) {
+func markFlag(receipt *receipt.Receipt, key string, ok bool) {
 	if receipt == nil || !ok {
 		return
 	}

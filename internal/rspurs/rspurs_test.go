@@ -46,7 +46,7 @@ func TestParseRemote429KeepsVLAndBlocksNext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.GrandTotal != 89.99 || first.Extensions[httplimit.ExtensionKey] != true {
+	if first.Total != 8999 || first.Extensions[httplimit.ExtensionKey] != true {
 		t.Fatalf("local+limited %#v", first)
 	}
 	second, err := p.Parse(provider.WithRemote(context.Background(), true), testdataURL(t))
@@ -56,8 +56,8 @@ func TestParseRemote429KeepsVLAndBlocksNext(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("second call must obey 429, got %d fetches", calls)
 	}
-	if second.GrandTotal != 89.99 {
-		t.Fatalf("total %v", second.GrandTotal)
+	if second.Total != 8999 {
+		t.Fatalf("total %v", second.Total)
 	}
 }
 
@@ -77,11 +77,11 @@ func TestParseLocalFromVL(t *testing.T) {
 	if receipt.ID != "rs-U56ZV6W7-U56ZV6W7-104836" {
 		t.Fatalf("id %s", receipt.ID)
 	}
-	if receipt.GrandTotal != 89.99 {
-		t.Fatalf("total %v", receipt.GrandTotal)
+	if receipt.Total != 8999 {
+		t.Fatalf("total %v", receipt.Total)
 	}
-	if receipt.Currency != "RSD" || receipt.ReceiptType != "sale" {
-		t.Fatalf("meta %s %s", receipt.Currency, receipt.ReceiptType)
+	if receipt.Currency != "RSD" || receipt.Type != "sale" {
+		t.Fatalf("meta %s %s", receipt.Currency, receipt.Type)
 	}
 	if !receipt.IssuedAt.Equal(time.Date(2026, 8, 19, 14, 34, 52, 0, time.UTC)) {
 		t.Fatalf("issued %v", receipt.IssuedAt)
@@ -150,8 +150,8 @@ func TestParseRemoteFailureKeepsVL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if receipt.GrandTotal != 89.99 {
-		t.Fatalf("total %v", receipt.GrandTotal)
+	if receipt.Total != 8999 {
+		t.Fatalf("total %v", receipt.Total)
 	}
 }
 
@@ -182,11 +182,11 @@ func TestParseFixture(t *testing.T) {
 	if receipt.Currency != "RSD" {
 		t.Fatalf("currency %s", receipt.Currency)
 	}
-	if receipt.ReceiptType != "sale" {
-		t.Fatalf("type %s", receipt.ReceiptType)
+	if receipt.Type != "sale" {
+		t.Fatalf("type %s", receipt.Type)
 	}
-	if receipt.GrandTotal != 89.99 {
-		t.Fatalf("total %v", receipt.GrandTotal)
+	if receipt.Total != 8999 {
+		t.Fatalf("total %v", receipt.Total)
 	}
 	if !receipt.IssuedAt.Equal(time.Date(2026, 8, 19, 14, 34, 52, 0, time.UTC)) {
 		t.Fatalf("issued %v", receipt.IssuedAt)
@@ -195,10 +195,10 @@ func TestParseFixture(t *testing.T) {
 		t.Fatalf("items %#v", receipt.Items)
 	}
 	item := receipt.Items[0]
-	if item.Description != "VODA GAZIRANA KNJAZ MILOS LIMUN 1,25L (KOM)" {
-		t.Fatalf("name %q", item.Description)
+	if item.Name != "VODA GAZIRANA KNJAZ MILOS LIMUN 1,25L (KOM)" {
+		t.Fatalf("name %q", item.Name)
 	}
-	if item.Quantity != 1 || item.UnitPrice != 89.99 || item.TotalPrice != 89.99 {
+	if item.Quantity != 1 || item.Price != 8999 || item.Sum != 8999 {
 		t.Fatalf("item %#v", item)
 	}
 }
@@ -217,8 +217,8 @@ func TestParseRefund(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if receipt.ReceiptType != "refund" {
-		t.Fatalf("type %s", receipt.ReceiptType)
+	if receipt.Type != "refund" {
+		t.Fatalf("type %s", receipt.Type)
 	}
 	if len(receipt.Items) != 0 {
 		t.Fatalf("items %d", len(receipt.Items))
@@ -241,10 +241,10 @@ func TestParseJournalMultipleItems(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("items %#v", items)
 	}
-	if items[0].Description != "Kesa CC KESA M-UNI" || items[0].TotalPrice != 30 {
+	if items[0].Name != "Kesa CC KESA M-UNI" || items[0].Sum != 3000 {
 		t.Fatalf("first %#v", items[0])
 	}
-	if items[1].Description != "Muške cipele CCK100998-003-44" || items[1].UnitPrice != 13293 {
+	if items[1].Name != "Muške cipele CCK100998-003-44" || items[1].Price != 1329300 {
 		t.Fatalf("second %#v", items[1])
 	}
 }

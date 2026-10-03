@@ -13,8 +13,9 @@ import (
 	"github.com/chiririll/CheckScanProviders/internal/nativecfg"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/internal/outcome"
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/money"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 const ID = "ru_fns"
@@ -29,13 +30,14 @@ type Provider struct {
 }
 
 type fields struct {
-	fn       string
-	fd       string
-	fp       string
-	t        string
-	n        string
-	s        string
-	sum      *float64
+	fn string
+	fd string
+	fp string
+	t  string
+	n  string
+	s  string
+	// sum is the QR total in kopecks.
+	sum      *int64
 	issuedAt *time.Time
 }
 
@@ -58,7 +60,7 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 	return f.fn + "|" + f.fd + "|" + f.fp, true
 }
 
-func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
+func (p Provider) Parse(ctx context.Context, rawQR string) (*receipt.Receipt, error) {
 	f := parseFields(rawQR)
 	if f == nil {
 		nativelog.Warn("%s rufns invalid_qr", nativelog.Call(ctx))
@@ -97,12 +99,12 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 	if len(receipt.Items) == 0 {
 		outcome.MarkNoItems(receipt)
 	}
-	nativelog.Info("%s rufns ticket ok items=%d merchant=%q total=%g",
-		nativelog.Call(ctx), len(receipt.Items), receipt.MerchantName, receipt.GrandTotal)
+	nativelog.Info("%s rufns ticket ok items=%d merchant=%q total=%d",
+		nativelog.Call(ctx), len(receipt.Items), receipt.MerchantName, receipt.Total)
 	return receipt, nil
 }
 
-func receiptFromFields(rawQR string, f *fields) *eq.Receipt {
+func receiptFromFields(rawQR string, f *fields) *receipt.Receipt {
 	issued := time.Now()
 	if f.issuedAt != nil {
 		issued = *f.issuedAt
@@ -111,17 +113,17 @@ func receiptFromFields(rawQR string, f *fields) *eq.Receipt {
 	if f.n == "2" {
 		receiptType = "refund"
 	}
-	total := 0.0
+	var total int64
 	if f.sum != nil {
 		total = *f.sum
 	}
-	return &eq.Receipt{
-		ID:          "ru-" + f.fn + "-" + f.fd + "-" + f.fp,
-		IssuedAt:    issued,
-		Currency:    "RUB",
-		ReceiptType: receiptType,
-		Items:       []eq.Item{},
-		GrandTotal:  total,
+	return &receipt.Receipt{
+		ID:       "ru-" + f.fn + "-" + f.fd + "-" + f.fp,
+		IssuedAt: issued,
+		Currency: "RUB",
+		Type:     receiptType,
+		Items:    []receipt.Item{},
+		Total:    total,
 		Extensions: map[string]any{
 			"checkscan.qr_raw": rawQR,
 		},
@@ -149,9 +151,9 @@ func parseFields(rawQR string) *fields {
 	if fn == "" || fd == "" || fp == "" {
 		return nil
 	}
-	var sum *float64
+	var sum *int64
 	if raw, ok := values["s"]; ok && raw != "" {
-		if n, err := strconv.ParseFloat(strings.ReplaceAll(raw, ",", "."), 64); err == nil {
+		if n, err := money.ParseDecimal(raw, 2); err == nil {
 			sum = &n
 		}
 	}

@@ -1,6 +1,7 @@
 package rufns
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,8 +14,9 @@ import (
 
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/money"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 const apiHost = "proverkacheka.com"
@@ -37,16 +39,16 @@ type ticket struct {
 	UserInn     string       `json:"userInn"`
 	RetailPlace string       `json:"retailPlace"`
 	DateTime    string       `json:"dateTime"`
-	TotalSum    float64      `json:"totalSum"`
+	TotalSum    json.Number  `json:"totalSum"`
 	Operation   int          `json:"operationType"`
 	Items       []ticketItem `json:"items"`
 }
 
 type ticketItem struct {
-	Name     string  `json:"name"`
-	Price    float64 `json:"price"`
-	Quantity float64 `json:"quantity"`
-	Sum      float64 `json:"sum"`
+	Name     string      `json:"name"`
+	Price    json.Number `json:"price"`
+	Quantity float64     `json:"quantity"`
+	Sum      json.Number `json:"sum"`
 }
 
 func (p Provider) fetch(ctx context.Context, qrraw string) ([]byte, error) {
@@ -108,54 +110,69 @@ func parseTicket(body []byte) (*ticket, map[string]any, error) {
 	if err := json.Unmarshal(resp.Data.JSON, &t); err != nil {
 		return nil, nil, err
 	}
+	// Numbers stay json.Number so raw provider amounts are echoed exactly.
 	var extra map[string]any
-	if err := json.Unmarshal(resp.Data.JSON, &extra); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(resp.Data.JSON))
+	dec.UseNumber()
+	if err := dec.Decode(&extra); err != nil {
 		return nil, nil, err
 	}
 	delete(extra, "items")
 	return &t, extra, nil
 }
 
-func applyTicket(receipt *eq.Receipt, t *ticket, extra map[string]any) {
+// applyTicket fills r from the FNS ticket. FNS amounts are integer kopecks.
+func applyTicket(r *receipt.Receipt, t *ticket, extra map[string]any) {
 	if name := strings.TrimSpace(t.RetailPlace); name != "" {
-		receipt.MerchantName = name
+		r.MerchantName = name
 	} else if name := strings.TrimSpace(t.User); name != "" {
-		receipt.MerchantName = name
+		r.MerchantName = name
 	}
 	if inn := strings.TrimSpace(t.UserInn); inn != "" {
-		receipt.TaxID = inn
+		r.TaxID = inn
 	}
-	if t.TotalSum > 0 {
-		receipt.GrandTotal = t.TotalSum / 100
+	if total := kopecks(t.TotalSum); total > 0 {
+		r.Total = total
 	}
 	if t.Operation == 2 {
-		receipt.ReceiptType = "refund"
+		r.Type = "refund"
 	}
 	if issued, ok := parseTicketTime(t.DateTime); ok {
-		receipt.IssuedAt = issued
+		r.IssuedAt = issued
 	}
-	items := make([]eq.Item, 0, len(t.Items))
+	items := make([]receipt.Item, 0, len(t.Items))
 	for _, item := range t.Items {
 		name := strings.TrimSpace(item.Name)
 		if name == "" {
 			continue
 		}
-		items = append(items, eq.Item{
-			Description: name,
-			Quantity:    item.Quantity,
-			UnitPrice:   item.Price / 100,
-			TotalPrice:  item.Sum / 100,
+		items = append(items, receipt.Item{
+			Name:     name,
+			Quantity: item.Quantity,
+			Price:    kopecks(item.Price),
+			Sum:      kopecks(item.Sum),
 		})
 	}
 	if len(items) > 0 {
-		receipt.Items = items
+		r.Items = items
 	}
 	if extra != nil {
-		if receipt.Extensions == nil {
-			receipt.Extensions = map[string]any{}
+		if r.Extensions == nil {
+			r.Extensions = map[string]any{}
 		}
-		receipt.Extensions["ru_fns"] = extra
+		r.Extensions["ru_fns"] = extra
 	}
+}
+
+func kopecks(n json.Number) int64 {
+	if n == "" {
+		return 0
+	}
+	value, err := money.ParseDecimal(n.String(), 0)
+	if err != nil {
+		return 0
+	}
+	return value
 }
 
 func parseTicketTime(raw string) (time.Time, bool) {

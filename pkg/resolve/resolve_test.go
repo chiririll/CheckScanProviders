@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 	"github.com/chiririll/CheckScanProviders/pkg/resolve"
 )
 
@@ -96,8 +96,8 @@ func TestResolveFNSIncomplete(t *testing.T) {
 	if result.Receipt == nil || len(result.Receipt.Items) != 0 {
 		t.Fatal("expected no items")
 	}
-	if result.Receipt.GrandTotal != 1247 {
-		t.Fatalf("total %v", result.Receipt.GrandTotal)
+	if result.Receipt.Total != 124700 {
+		t.Fatalf("total %v", result.Receipt.Total)
 	}
 	if result.Receipt.Currency != "RUB" {
 		t.Fatalf("currency %s", result.Receipt.Currency)
@@ -121,13 +121,13 @@ func TestResolveEQHasItems(t *testing.T) {
 }
 
 func TestResolveKeepsCurrentWhenIncomingIsNotRicher(t *testing.T) {
-	current := &eq.Receipt{
+	current := &receipt.Receipt{
 		ID:           "kept",
 		Currency:     "RUB",
-		ReceiptType:  "sale",
+		Type:         "sale",
 		MerchantName: "Shop",
-		GrandTotal:   1247,
-		Items:        []eq.Item{{Description: "Хлеб", Quantity: 1, UnitPrice: 1247, TotalPrice: 1247}},
+		Total:        124700,
+		Items:        []receipt.Item{{Name: "Хлеб", Quantity: 1, Price: 124700, Sum: 124700}},
 	}
 	result, err := resolve.Resolve(context.Background(), read(t, "fns_query.txt"), "", nil, current)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestResolveKeepsCurrentWhenIncomingIsNotRicher(t *testing.T) {
 }
 
 func TestResolveTakesIncomingWhenRicher(t *testing.T) {
-	current := &eq.Receipt{Currency: "RUB", ReceiptType: "sale", GrandTotal: 1247}
+	current := &receipt.Receipt{Currency: "RUB", Type: "sale", Total: 124700}
 	result, err := resolve.Resolve(context.Background(), read(t, "eq_with_id.json"), "", nil, current)
 	if err != nil {
 		t.Fatal(err)

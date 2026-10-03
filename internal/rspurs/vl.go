@@ -8,17 +8,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/money"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 const minVLHeader = 43
 
 type vlPayload struct {
-	RequestedBy     string
-	SignedBy        string
-	TotalCounter    int32
-	TxCounter       int32
-	TotalAmount     float64
+	RequestedBy  string
+	SignedBy     string
+	TotalCounter int32
+	TxCounter    int32
+	// TotalAmount is in para (1/100 dinar).
+	TotalAmount     int64
 	IssuedAt        time.Time
 	InvoiceType     int
 	TransactionType int
@@ -35,7 +37,8 @@ func decodeVL(vl string) (*vlPayload, error) {
 	if len(raw) < minVLHeader {
 		return nil, errors.New("invalid_vl")
 	}
-	amount := float64(binary.LittleEndian.Uint64(raw[25:33])) / 10000
+	// The VL stores the total in 1/10000 dinar.
+	amount := money.Rescale(int64(binary.LittleEndian.Uint64(raw[25:33])), 4, money.Exponent(currency))
 	ms := binary.BigEndian.Uint64(raw[33:41])
 	return &vlPayload{
 		RequestedBy:     ascii8(raw[1:9]),
@@ -49,7 +52,7 @@ func decodeVL(vl string) (*vlPayload, error) {
 	}, nil
 }
 
-func receiptFromVL(rawQR, vl string) (*eq.Receipt, error) {
+func receiptFromVL(rawQR, vl string) (*receipt.Receipt, error) {
 	p, err := decodeVL(vl)
 	if err != nil {
 		return nil, err
@@ -63,13 +66,13 @@ func receiptFromVL(rawQR, vl string) (*eq.Receipt, error) {
 	if issued.IsZero() {
 		issued = time.Now().UTC()
 	}
-	return &eq.Receipt{
-		ID:          "rs-" + number,
-		IssuedAt:    issued,
-		Currency:    "RSD",
-		ReceiptType: receiptType,
-		Items:       []eq.Item{},
-		GrandTotal:  p.TotalAmount,
+	return &receipt.Receipt{
+		ID:       "rs-" + number,
+		IssuedAt: issued,
+		Currency: currency,
+		Type:     receiptType,
+		Items:    []receipt.Item{},
+		Total:    p.TotalAmount,
 		Extensions: map[string]any{
 			"checkscan.qr_raw": rawQR,
 			"rs_purs": map[string]any{

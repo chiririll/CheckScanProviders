@@ -1,6 +1,6 @@
 # CheckScanProviders
 
-Go library: match/resolve a receipt QR into eq receipt JSON. Embedded in CheckScan as a C-shared library. Flutter FFI lives in this repo.
+Go library: match/resolve a receipt QR into CheckScan receipt JSON. Embedded in CheckScan as a C-shared library. Flutter FFI lives in this repo.
 
 Overview and `go test ./...`: [README.md](README.md).
 
@@ -10,7 +10,8 @@ Overview and `go test ./...`: [README.md](README.md).
 | --- | --- |
 | [pkg/resolve](pkg/resolve/resolve.go) | Public API: `Match` / `Resolve`, default registry |
 | [pkg/provider](pkg/provider/provider.go) | `Provider` interface |
-| [pkg/eq](pkg/eq/receipt.go) | Receipt JSON model |
+| [pkg/receipt](pkg/receipt/receipt.go) | Receipt JSON model (`format: checkscan.receipt`, `version: 1`) |
+| [pkg/money](pkg/money/money.go) | Amounts as integer minor units: exact decimal parsing, currency exponent |
 | [adapters/c/include/checkscan.h](adapters/c/include/checkscan.h) | C adapter: ABI (`checkscan_match` / `resolve` / `settings` / `set_config` / `set_log`) |
 | [cmd/lib](cmd/lib/main.go) | c-shared implementation of the C adapter |
 | [internal/nativelog](internal/nativelog/nativelog.go) | Library logs: stderr, or host `checkscan_set_log` |
@@ -20,9 +21,13 @@ Overview and `go test ./...`: [README.md](README.md).
 | [scripts/build_android.sh](scripts/build_android.sh) | Local Android `.so` build (also [`.ps1`](scripts/build_android.ps1)) |
 | [.github/workflows/release.yml](.github/workflows/release.yml) | Tag `v*` → GitHub Release with `android-jniLibs.zip` |
 
-`Parse` is local unless `provider.Remote(ctx)` is true (scan and refresh pass `remote`). `internal/httplimit` is a per-host request budget (sliding windows + 403/429/503 cooldown). It is not receipt storage: CheckScan already dedupes by QR hash in SQLite before `resolve`. Gate timestamps may be written under `TMPDIR` so a new isolate still sees the budget. A successful receipt with no line items sets `checkscan.items_unavailable`; an empty list without that flag is still incomplete. `checkscan_resolve` may receive the stored receipt JSON; resolve keeps it unless the new parse is richer (more items, merchant, tax id, or a non-zero total).
+`Parse` is local unless `provider.Remote(ctx)` is true (scan and refresh pass `remote`). `internal/httplimit` is a per-host request budget (sliding windows + 403/429/503 cooldown). It is not receipt storage: CheckScan already dedupes by QR hash in SQLite before `resolve`. Gate timestamps may be written under `TMPDIR` so a new isolate still sees the budget. A successful receipt with no line items sets `checkscan.items_unavailable`; an empty list without that flag is still incomplete. `checkscan_resolve` may receive the stored receipt JSON (CheckScan format; anything else is ignored); resolve keeps it unless the new parse is richer (more items, merchant, tax id, or a non-zero total).
 
 New formats live here, not in the Flutter app.
+
+## Receipt JSON
+
+`{format, version, id, issued_at, currency, type, merchant{name, tax_id}, total, items[{name, quantity, price, sum}], extensions}`. `total`, `price` and `sum` are integers in the currency's minor units (`money.Exponent`: 2 for RUB/RSD). `quantity` may be fractional. Never put money through `float64`: parse provider amounts with `money.ParseDecimal` (or `json.Number`). eQ 1.0 is an input format only (`internal/eqpayload`), converted on parse.
 
 ## Add a provider
 

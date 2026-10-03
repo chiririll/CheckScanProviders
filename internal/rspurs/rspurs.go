@@ -17,11 +17,15 @@ import (
 	"github.com/chiririll/CheckScanProviders/internal/httplimit"
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
 	"github.com/chiririll/CheckScanProviders/internal/outcome"
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/money"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 const ID = "rs_purs"
+
+// currency of every PURS receipt.
+const currency = "RSD"
 
 const (
 	hostSUF     = "suf.purs.gov.rs"
@@ -60,18 +64,18 @@ type invoiceRequest struct {
 }
 
 type payment struct {
-	PaymentType int     `json:"paymentType"`
-	Amount      float64 `json:"amount"`
+	PaymentType int         `json:"paymentType"`
+	Amount      json.Number `json:"amount"`
 }
 
 type invoiceResult struct {
-	TotalAmount             float64 `json:"totalAmount"`
-	TransactionTypeCounter  int     `json:"transactionTypeCounter"`
-	TotalCounter            int     `json:"totalCounter"`
-	InvoiceCounterExtension string  `json:"invoiceCounterExtension"`
-	InvoiceNumber           string  `json:"invoiceNumber"`
-	SignedBy                string  `json:"signedBy"`
-	SDCTime                 string  `json:"sdcTime"`
+	TotalAmount             json.Number `json:"totalAmount"`
+	TransactionTypeCounter  int         `json:"transactionTypeCounter"`
+	TotalCounter            int         `json:"totalCounter"`
+	InvoiceCounterExtension string      `json:"invoiceCounterExtension"`
+	InvoiceNumber           string      `json:"invoiceNumber"`
+	SignedBy                string      `json:"signedBy"`
+	SDCTime                 string      `json:"sdcTime"`
 }
 
 func New() provider.Provider {
@@ -89,7 +93,7 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 	return hashVL(vl), true
 }
 
-func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
+func (p Provider) Parse(ctx context.Context, rawQR string) (*receipt.Receipt, error) {
 	vl, ok := extractVL(rawQR)
 	if !ok {
 		nativelog.Warn("%s rspurs invalid_qr", nativelog.Call(ctx))
@@ -106,8 +110,8 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 		if len(remote.Items) == 0 {
 			outcome.MarkNoItems(remote)
 		}
-		nativelog.Info("%s rspurs remote ok items=%d merchant=%q total=%g",
-			nativelog.Call(ctx), len(remote.Items), remote.MerchantName, remote.GrandTotal)
+		nativelog.Info("%s rspurs remote ok items=%d merchant=%q total=%d",
+			nativelog.Call(ctx), len(remote.Items), remote.MerchantName, remote.Total)
 		return remote, nil
 	}
 	if err == nil {
@@ -127,7 +131,7 @@ func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) 
 	return nil, rerr
 }
 
-func (p Provider) parseRemote(ctx context.Context, rawQR string) (*eq.Receipt, error) {
+func (p Provider) parseRemote(ctx context.Context, rawQR string) (*receipt.Receipt, error) {
 	pageURL, ok := extractURL(rawQR)
 	if !ok {
 		nativelog.Warn("%s rspurs remote invalid_url", nativelog.Call(ctx))
@@ -144,7 +148,7 @@ func (p Provider) parseRemote(ctx context.Context, rawQR string) (*eq.Receipt, e
 	return receipt, err
 }
 
-func receiptFromJSON(rawQR string, body []byte) (*eq.Receipt, error) {
+func receiptFromJSON(rawQR string, body []byte) (*receipt.Receipt, error) {
 	var inv invoiceJSON
 	if err := json.Unmarshal(body, &inv); err != nil {
 		return nil, errors.New("invalid_json")
@@ -185,20 +189,20 @@ func receiptFromJSON(rawQR string, body []byte) (*eq.Receipt, error) {
 		for _, pay := range inv.InvoiceRequest.Payments {
 			pays = append(pays, map[string]any{
 				"payment_type": pay.PaymentType,
-				"amount":       pay.Amount,
+				"amount":       amountPara(pay.Amount),
 			})
 		}
 		rs["payments"] = pays
 	}
-	return &eq.Receipt{
+	return &receipt.Receipt{
 		ID:           "rs-" + inv.InvoiceResult.InvoiceNumber,
 		IssuedAt:     issued,
-		Currency:     "RSD",
-		ReceiptType:  receiptType,
+		Currency:     currency,
+		Type:         receiptType,
 		MerchantName: strings.TrimSpace(inv.InvoiceRequest.BusinessName),
 		TaxID:        inv.InvoiceRequest.TaxID,
 		Items:        parseJournalItems(inv.Journal),
-		GrandTotal:   inv.InvoiceResult.TotalAmount,
+		Total:        amountPara(inv.InvoiceResult.TotalAmount),
 		Extensions: map[string]any{
 			"checkscan.qr_raw": rawQR,
 			"rs_purs":          rs,
@@ -285,4 +289,16 @@ func extractVL(rawQR string) (string, bool) {
 func hashVL(vl string) string {
 	sum := sha256.Sum256([]byte(vl))
 	return hex.EncodeToString(sum[:])
+}
+
+// amountPara reads a PURS JSON amount (dinars) into para without going through float.
+func amountPara(n json.Number) int64 {
+	if n == "" {
+		return 0
+	}
+	value, err := money.ParseDecimal(n.String(), money.Exponent(currency))
+	if err != nil {
+		return 0
+	}
+	return value
 }

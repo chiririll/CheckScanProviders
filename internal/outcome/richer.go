@@ -3,7 +3,7 @@ package outcome
 import (
 	"strings"
 
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 func hasText(value string) bool {
@@ -12,7 +12,7 @@ func hasText(value string) bool {
 
 // IsRicher reports whether incoming adds items, merchant, tax id, or a total
 // that current does not have.
-func IsRicher(incoming, current *eq.Receipt) bool {
+func IsRicher(incoming, current *receipt.Receipt) bool {
 	if incoming == nil || current == nil {
 		return incoming != nil
 	}
@@ -25,13 +25,13 @@ func IsRicher(incoming, current *eq.Receipt) bool {
 	if hasText(incoming.TaxID) && !hasText(current.TaxID) {
 		return true
 	}
-	if incoming.GrandTotal > 0 && current.GrandTotal == 0 {
+	if incoming.Total > 0 && current.Total == 0 {
 		return true
 	}
 	return false
 }
 
-func PreferRicher(incoming, current *eq.Receipt) *eq.Receipt {
+func PreferRicher(incoming, current *receipt.Receipt) *receipt.Receipt {
 	if current == nil || IsRicher(incoming, current) {
 		return incoming
 	}

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/chiririll/CheckScanProviders/internal/nativelog"
-	"github.com/chiririll/CheckScanProviders/pkg/eq"
 	"github.com/chiririll/CheckScanProviders/pkg/provider"
+	"github.com/chiririll/CheckScanProviders/pkg/receipt"
 )
 
 const ID = "eq_payload"
@@ -35,28 +35,29 @@ func (p Provider) CanHandle(rawQR string) (string, bool) {
 			return "", false
 		}
 	}
-	var receipt eq.Receipt
-	if err := json.Unmarshal([]byte(text), &receipt); err != nil {
+	parsed, err := decodeEQ([]byte(text))
+	if err != nil {
 		return "", false
 	}
-	if receipt.ID != "" {
-		return receipt.ID, true
+	if parsed.ID != "" {
+		return parsed.ID, true
 	}
 	return hashRaw(text), true
 }
 
-func (p Provider) Parse(ctx context.Context, rawQR string) (*eq.Receipt, error) {
+// Parse converts the eQ JSON in the QR into a CheckScan receipt.
+func (p Provider) Parse(ctx context.Context, rawQR string) (*receipt.Receipt, error) {
 	text := strings.TrimSpace(rawQR)
 	if _, ok := asMap(text); !ok {
 		return nil, errors.New("invalid_json")
 	}
-	var receipt eq.Receipt
-	if err := json.Unmarshal([]byte(text), &receipt); err != nil {
+	parsed, err := decodeEQ([]byte(text))
+	if err != nil {
 		nativelog.Warn("%s eqpayload invalid_json", nativelog.Call(ctx))
 		return nil, errors.New("invalid_json")
 	}
-	nativelog.Info("%s eqpayload ok id=%s items=%d", nativelog.Call(ctx), receipt.ID, len(receipt.Items))
-	return &receipt, nil
+	nativelog.Info("%s eqpayload ok id=%s items=%d", nativelog.Call(ctx), parsed.ID, len(parsed.Items))
+	return parsed, nil
 }
 
 func asMap(raw string) (map[string]any, bool) {
