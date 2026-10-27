@@ -283,3 +283,43 @@ func mustVL(t *testing.T, raw string) string {
 	}
 	return vl
 }
+
+func TestParseLocalUnescapedPlusInVL(t *testing.T) {
+	raw := strings.TrimSpace(string(readTestdata(t, "rs_url_plus.txt")))
+	p := Provider{}
+	receipt, err := p.Parse(context.Background(), raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if receipt.Total != 327800 {
+		t.Fatalf("total=%d", receipt.Total)
+	}
+	// The same payload with + escaped as %2B must give the same VL and hash.
+	escaped := strings.ReplaceAll(strings.TrimSpace(raw), "+", "%2B")
+	a, _ := extractVL(raw)
+	b, _ := extractVL(escaped)
+	if a != b || strings.Contains(a, " ") {
+		t.Fatalf("vl differs between + and %%2B forms")
+	}
+	h1, _ := p.CanHandle(raw)
+	h2, _ := p.CanHandle(escaped)
+	if h1 != h2 {
+		t.Fatalf("hash differs: %s vs %s", h1, h2)
+	}
+}
+
+func TestFetchEscapesPlusInVL(t *testing.T) {
+	raw := strings.TrimSpace(string(readTestdata(t, "rs_url_plus.txt")))
+	var got string
+	p := Provider{Fetch: func(_ context.Context, u string) ([]byte, error) {
+		got = u
+		return testdataJSON(t), nil
+	}}
+	ctx := provider.WithRemote(context.Background(), true)
+	if _, err := p.Parse(ctx, raw); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got == "" || strings.Contains(got, "+") {
+		t.Fatalf("fetched url has literal +: %s", got)
+	}
+}

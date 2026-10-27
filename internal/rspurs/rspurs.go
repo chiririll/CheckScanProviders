@@ -140,7 +140,7 @@ func (p Provider) parseRemote(ctx context.Context, rawQR string) (*receipt.Recei
 		nativelog.Warn("%s rspurs remote invalid_url", nativelog.Call(ctx))
 		return nil, errors.New("invalid_qr")
 	}
-	body, err := p.fetch(ctx, pageURL)
+	body, err := p.fetch(ctx, escapePlus(pageURL))
 	if err != nil {
 		return nil, err
 	}
@@ -268,10 +268,20 @@ func extractURL(rawQR string) (string, bool) {
 	if strings.ToLower(u.Hostname()) != hostSUF {
 		return "", false
 	}
-	if u.Query().Get("vl") == "" {
+	if vlParam(u) == "" {
 		return "", false
 	}
 	return raw, true
+}
+
+// escapePlus sends a literal "+" in the query as %2B; the server would otherwise
+// decode it as a space and see a corrupted vl.
+func escapePlus(rawURL string) string {
+	i := strings.Index(rawURL, "?")
+	if i < 0 {
+		return rawURL
+	}
+	return rawURL[:i+1] + strings.ReplaceAll(rawURL[i+1:], "+", "%2B")
 }
 
 func extractVL(rawQR string) (string, bool) {
@@ -283,11 +293,18 @@ func extractVL(rawQR string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	vl := u.Query().Get("vl")
+	vl := vlParam(u)
 	if vl == "" {
 		return "", false
 	}
 	return vl, true
+}
+
+// vlParam returns the "vl" query value. SUF puts base64 in it unescaped, so a
+// literal "+" is escaped first; otherwise query decoding would turn it into a space.
+func vlParam(u *url.URL) string {
+	q, _ := url.ParseQuery(strings.ReplaceAll(u.RawQuery, "+", "%2B"))
+	return q.Get("vl")
 }
 
 func hashVL(vl string) string {
